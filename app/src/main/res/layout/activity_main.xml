@@ -48,6 +48,7 @@
         app:layout_constraintTop_toBottomOf="@id/subtitleView" />
 
     <LinearLayout
+        android:id="@+id/joinRow"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_marginTop="12dp"
@@ -91,6 +92,6 @@
         android:textSize="13sp"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/btnScanQr" />
+        app:layout_constraintTop_toBottomOf="@id/joinRow" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

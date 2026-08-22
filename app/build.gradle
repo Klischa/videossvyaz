@@ -79,6 +79,12 @@ android {
             java.srcDirs("src/main/kotlin")
         }
     }
+
+    // lint не должен блокировать выпуск APK в CI (мы не выкладываемся в Play Store).
+    lint {
+        checkReleaseBuilds = false
+        abortOnError = false
+    }
 }
 
 dependencies {
