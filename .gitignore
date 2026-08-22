@@ -1,0 +1,28 @@
+# Gradle
+.gradle/
+build/
+
+# Android Studio / IntelliJ
+*.iml
+.idea/
+captures/
+.cxx/
+.externalNativeBuild/
+
+# Локальная конфигурация SDK (машинозависимая)
+local.properties
+
+# Собранные артефакты
+*.apk
+*.aab
+*.ap_
+*.dex
+
+# Keystore (не коммитим ключи подписи)
+*.jks
+*.keystore
+keystore.properties
+
+# macOS / Windows
+.DS_Store
+Thumbs.db

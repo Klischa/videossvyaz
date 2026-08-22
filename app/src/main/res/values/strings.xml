@@ -1,0 +1,50 @@
+<resources>
+    <string name="app_name">P2P Звонок</string>
+
+    <!-- Главный экран -->
+    <string name="home_title">Прямой видеозвонок</string>
+    <string name="home_subtitle">Звонок без сервера. Обмен приглашениями — через любую ссылку.</string>
+    <string name="btn_create_call">Создать звонок</string>
+    <string name="btn_join_call">Присоединиться по ссылке</string>
+    <string name="home_hint">Нажмите «Создать звонок», сгенерируйте приглашение и отправьте его собеседнику. Когда собеседник пришлёт ответную ссылку — вставьте её, чтобы соединиться.</string>
+    <string name="join_dialog_title">Вставьте ссылку-приглашение</string>
+    <string name="join_dialog_hint">https://yourdomain.com/call?type=offer&amp;sdp=…</string>
+    <string name="join_dialog_ok">Открыть</string>
+    <string name="join_dialog_cancel">Отмена</string>
+
+    <!-- Экран звонка -->
+    <string name="status_initializing">Инициализация камеры…</string>
+    <string name="status_generating_offer">Генерация приглашения…</string>
+    <string name="status_generating_answer">Генерация ответа…</string>
+    <string name="status_waiting_answer">Ожидание ответа…</string>
+    <string name="status_connecting">Соединение…</string>
+    <string name="status_connected">На связи</string>
+    <string name="status_disconnected">Соединение разорвано</string>
+
+    <string name="offer_label">Ваше приглашение</string>
+    <string name="offer_hint">Отправьте эту ссылку собеседнику (в Telegram, WhatsApp, Max и т.п.).</string>
+    <string name="answer_label">Ваш ответ</string>
+    <string name="answer_hint">Отправьте эту ссылку обратно инициатору звонка.</string>
+
+    <string name="waiting_answer_hint">Когда собеседник пришлёт ответную ссылку — вставьте её сюда.</string>
+    <string name="hint_answer_input">Вставьте ответную ссылку…</string>
+
+    <string name="btn_copy">Копировать</string>
+    <string name="btn_share">Поделиться</string>
+    <string name="btn_apply_answer">Установить соединение</string>
+
+    <string name="btn_mic">Микрофон</string>
+    <string name="btn_video">Видео</string>
+    <string name="btn_switch">Камера</string>
+    <string name="btn_hangup">Завершить</string>
+
+    <string name="chooser_share">Отправить ссылку через…</string>
+
+    <!-- Сообщения -->
+    <string name="msg_copied">Ссылка скопирована в буфер обмена</string>
+    <string name="msg_invalid_link">Неверная или повреждённая ссылка</string>
+    <string name="msg_permission_required">Для звонка нужны разрешения на камеру и микрофон</string>
+    <string name="msg_session_lost">Сессия потеряна. Создайте звонок заново.</string>
+    <string name="msg_failed">Не удалось установить соединение: %1$s</string>
+    <string name="msg_autocopy_answer">Ответная ссылка скопирована — отправьте её инициатору</string>
+</resources>
