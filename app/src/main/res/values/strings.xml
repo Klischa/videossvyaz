@@ -6,6 +6,7 @@
     <string name="home_subtitle">Звонок без сервера. Обмен приглашениями — через любую ссылку.</string>
     <string name="btn_create_call">Создать звонок</string>
     <string name="btn_join_call">Присоединиться по ссылке</string>
+    <string name="btn_scan_qr">Сканировать QR</string>
     <string name="home_hint">Нажмите «Создать звонок», сгенерируйте приглашение и отправьте его собеседнику. Когда собеседник пришлёт ответную ссылку — вставьте её, чтобы соединиться.</string>
     <string name="join_dialog_title">Вставьте ссылку-приглашение</string>
     <string name="join_dialog_hint">https://yourdomain.com/call?type=offer&amp;sdp=…</string>
@@ -26,12 +27,14 @@
     <string name="answer_label">Ваш ответ</string>
     <string name="answer_hint">Отправьте эту ссылку обратно инициатору звонка.</string>
 
-    <string name="waiting_answer_hint">Когда собеседник пришлёт ответную ссылку — вставьте её сюда.</string>
+    <string name="waiting_answer_hint">Когда собеседник пришлёт ответную ссылку — вставьте её сюда или отсканируйте QR.</string>
     <string name="hint_answer_input">Вставьте ответную ссылку…</string>
 
     <string name="btn_copy">Копировать</string>
     <string name="btn_share">Поделиться</string>
     <string name="btn_apply_answer">Установить соединение</string>
+    <string name="btn_send_contact">Контакту</string>
+    <string name="btn_show_qr">QR-код</string>
 
     <string name="btn_mic">Микрофон</string>
     <string name="btn_video">Видео</string>
@@ -40,10 +43,22 @@
 
     <string name="chooser_share">Отправить ссылку через…</string>
 
+    <!-- Контакты / мессенджеры -->
+    <string name="messenger_dialog_title">Отправить через</string>
+    <string name="contact_pick_number">Выберите номер</string>
+    <string name="contact_no_number">У этого контакта нет номера телефона</string>
+    <string name="msg_cannot_open">Не удалось открыть мессенджер</string>
+
+    <!-- QR -->
+    <string name="qr_dialog_title">QR-код ссылки</string>
+    <string name="qr_dialog_hint">Покажите этот код собеседнику — пусть отсканирует его в приложении.</string>
+    <string name="scan_prompt">Наведите камеру на QR-код со ссылкой</string>
+
     <!-- Сообщения -->
     <string name="msg_copied">Ссылка скопирована в буфер обмена</string>
     <string name="msg_invalid_link">Неверная или повреждённая ссылка</string>
     <string name="msg_permission_required">Для звонка нужны разрешения на камеру и микрофон</string>
+    <string name="msg_contacts_permission_required">Для выбора контакта нужен доступ к контактам</string>
     <string name="msg_session_lost">Сессия потеряна. Создайте звонок заново.</string>
     <string name="msg_failed">Не удалось установить соединение: %1$s</string>
     <string name="msg_autocopy_answer">Ответная ссылка скопирована — отправьте её инициатору</string>

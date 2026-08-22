@@ -3,10 +3,10 @@
     Экран звонка:
       * удалённое и локальное видео (SurfaceViewRenderer),
       * статус и индикатор прогресса,
-      * сигнальные панели (offer / вставка ответа / answer),
+      * сигнальные панели (offer / вставка ответа / answer) с кнопками
+        «Копировать», «Поделиться», «Контакту» (выбор контакта+мессенджер),
+        «QR-код» (генерация) и «Сканировать QR»,
       * панель управления (микрофон, видео, камера, завершение).
-    Видимость групп управляется из CallActivity. Сигнальные панели и панель
-    управления вложены в общий нижний контейнер, чтобы не перекрываться.
 -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
@@ -138,6 +138,28 @@
                             android:text="@string/btn_share"
                             android:textColor="@color/text_primary" />
                     </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:orientation="horizontal">
+
+                        <Button
+                            android:id="@+id/btnContactOffer"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="@string/btn_send_contact" />
+
+                        <Button
+                            android:id="@+id/btnQrOffer"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="8dp"
+                            android:layout_weight="1"
+                            android:text="@string/btn_show_qr" />
+                    </LinearLayout>
                 </LinearLayout>
 
                 <!-- Панель вставки ответной ссылки (для инициатора). -->
@@ -169,14 +191,29 @@
                         android:textColorHint="@color/text_secondary"
                         android:textSize="13sp" />
 
-                    <Button
-                        android:id="@+id/btnApplyAnswer"
+                    <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="8dp"
-                        android:backgroundTint="@color/ok"
-                        android:text="@string/btn_apply_answer"
-                        android:textColor="@color/text_primary" />
+                        android:orientation="horizontal">
+
+                        <Button
+                            android:id="@+id/btnApplyAnswer"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:backgroundTint="@color/ok"
+                            android:text="@string/btn_apply_answer"
+                            android:textColor="@color/text_primary" />
+
+                        <Button
+                            android:id="@+id/btnScanAnswerQr"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="8dp"
+                            android:layout_weight="1"
+                            android:text="@string/btn_scan_qr" />
+                    </LinearLayout>
                 </LinearLayout>
 
                 <!-- Панель answer (для принимающего). -->
@@ -241,6 +278,28 @@
                             android:backgroundTint="@color/brand"
                             android:text="@string/btn_share"
                             android:textColor="@color/text_primary" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:orientation="horizontal">
+
+                        <Button
+                            android:id="@+id/btnContactAnswer"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="@string/btn_send_contact" />
+
+                        <Button
+                            android:id="@+id/btnQrAnswer"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="8dp"
+                            android:layout_weight="1"
+                            android:text="@string/btn_show_qr" />
                     </LinearLayout>
                 </LinearLayout>
             </LinearLayout>

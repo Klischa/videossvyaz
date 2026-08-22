@@ -11,6 +11,9 @@
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
 
+    <!-- Контакты (для отправки ссылки выбранному контакту) -->
+    <uses-permission android:name="android.permission.READ_CONTACTS" />
+
     <!-- Аппаратные требования (необязательны, но рекомендуются) -->
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     <uses-feature android:name="android.hardware.microphone" android:required="false" />
@@ -60,5 +63,12 @@
             android:launchMode="singleTask"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation|keyboardHidden"
             android:screenOrientation="portrait" />
+
+        <!-- Активити сканера ZXing. exported задаём явно (рекомендуется для
+             targetSdk 31+); остальные атрибуты наследуем от библиотеки —
+             конфликта при слиянии нет, т.к. библиотека exported не задаёт. -->
+        <activity
+            android:name="com.journeyapps.barcodescanner.CaptureActivity"
+            android:exported="false" />
     </application>
 </manifest>

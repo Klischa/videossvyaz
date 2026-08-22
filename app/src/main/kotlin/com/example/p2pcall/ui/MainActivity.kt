@@ -4,6 +4,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import com.example.p2pcall.R
@@ -11,6 +12,7 @@ import com.example.p2pcall.databinding.ActivityMainBinding
 import com.example.p2pcall.signaling.SignalType
 import com.example.p2pcall.signaling.SdpCodec
 import com.example.p2pcall.webrtc.CallMode
+import com.journeyapps.barcodescanner.IntentIntegrator
 
 /**
  * Главный экран: выбор режима и маршрутизация deep link.
@@ -24,6 +26,19 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
 
+    /** Сканирование QR-кода со ссылкой-приглашением. */
+    private val qrScanLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        val res = IntentIntegrator.parseActivityResult(
+            IntentIntegrator.REQUEST_CODE, result.resultCode, result.data
+        )
+        val text = res?.contents
+        if (!text.isNullOrEmpty() && !routeLink(text)) {
+            Toast.makeText(this, R.string.msg_invalid_link, Toast.LENGTH_LONG).show()
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
@@ -36,6 +51,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         binding.btnJoinCall.setOnClickListener { showJoinDialog() }
+        binding.btnScanQr.setOnClickListener { startQrScan() }
 
         // Если приложение открылось по deep link — обработаем его.
         handleViewIntent(intent)
@@ -65,6 +81,21 @@ class MainActivity : AppCompatActivity() {
             }
             .setNegativeButton(R.string.join_dialog_cancel, null)
             .show()
+    }
+
+    /** Запуск сканера QR (ZXing) для приёма приглашения. */
+    private fun startQrScan() {
+        val integrator = IntentIntegrator(this).apply {
+            setPrompt(getString(R.string.scan_prompt))
+            setBeepEnabled(false)
+            setOrientationLocked(false)
+            setDesiredBarcodeFormats(listOf(IntentIntegrator.QR_CODE))
+        }
+        try {
+            qrScanLauncher.launch(integrator.createScanIntent())
+        } catch (_: Exception) {
+            Toast.makeText(this, R.string.msg_cannot_open, Toast.LENGTH_SHORT).show()
+        }
     }
 
     /** Обрабатывает ACTION_VIEW: парсит ссылку и запускает нужный режим звонка. */

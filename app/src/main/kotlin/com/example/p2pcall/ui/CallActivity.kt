@@ -5,19 +5,26 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.net.Uri
 import android.os.Bundle
+import android.widget.ImageView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import com.example.p2pcall.R
 import com.example.p2pcall.databinding.ActivityCallBinding
+import com.example.p2pcall.signaling.LinkDelivery
+import com.example.p2pcall.signaling.Messenger
 import com.example.p2pcall.signaling.SignalType
 import com.example.p2pcall.signaling.SdpCodec
 import com.example.p2pcall.webrtc.CallMode
 import com.example.p2pcall.webrtc.WebRtcController
 import com.example.p2pcall.webrtc.WebRtcListener
+import com.journeyapps.barcodescanner.IntentIntegrator
 import kotlinx.coroutines.launch
 import org.webrtc.RendererCommon
 
@@ -60,6 +67,30 @@ class CallActivity : AppCompatActivity(), WebRtcListener {
             Toast.makeText(this, R.string.msg_permission_required, Toast.LENGTH_LONG).show()
             finish()
         }
+    }
+
+    /** Запрос разрешения на чтение контактов (для отправки ссылки контакту). */
+    private val contactsPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) launchContactPicker()
+        else Toast.makeText(this, R.string.msg_contacts_permission_required, Toast.LENGTH_LONG).show()
+    }
+
+    /** Выбор контакта из адресной книги. */
+    private val pickContactLauncher = registerForActivityResult(
+        ActivityResultContracts.PickContact()
+    ) { uri -> uri?.let { onContactPicked(it) } }
+
+    /** Сканирование QR-кода (результат — текст ссылки). */
+    private val qrScanLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        val res = IntentIntegrator.parseActivityResult(
+            IntentIntegrator.REQUEST_CODE, result.resultCode, result.data
+        )
+        val text = res?.contents
+        if (!text.isNullOrEmpty()) handleScannedLink(text)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -297,6 +328,13 @@ class CallActivity : AppCompatActivity(), WebRtcListener {
         }
 
         binding.btnHangup.setOnClickListener { endCall() }
+
+        // Доставка ссылки: выбор контакта + мессенджер, QR-код, сканирование QR.
+        binding.btnContactOffer.setOnClickListener { startSendViaContact() }
+        binding.btnQrOffer.setOnClickListener { currentLink()?.let { showQrDialog(it) } }
+        binding.btnContactAnswer.setOnClickListener { startSendViaContact() }
+        binding.btnQrAnswer.setOnClickListener { currentLink()?.let { showQrDialog(it) } }
+        binding.btnScanAnswerQr.setOnClickListener { startQrScan() }
     }
 
     // ------------------------------------------------------------------------
@@ -315,6 +353,113 @@ class CallActivity : AppCompatActivity(), WebRtcListener {
             putExtra(Intent.EXTRA_TEXT, text)
         }
         startActivity(Intent.createChooser(sendIntent, getString(R.string.chooser_share)))
+    }
+
+    // ------------------------------------------------------------------------
+    //  Доставка ссылки: контакт + мессенджер, QR-код
+    // ------------------------------------------------------------------------
+
+    /** Текущая ссылка, которую показываем/отправляем (offer или answer). */
+    private fun currentLink(): String? = offerLink ?: answerLink
+
+    /** Запуск выбора контакта (с запросом READ_CONTACTS при необходимости). */
+    private fun startSendViaContact() {
+        if (currentLink() == null) return
+        val granted = ContextCompat.checkSelfPermission(
+            this, android.Manifest.permission.READ_CONTACTS
+        ) == PackageManager.PERMISSION_GRANTED
+        if (granted) launchContactPicker()
+        else contactsPermissionLauncher.launch(android.Manifest.permission.READ_CONTACTS)
+    }
+
+    private fun launchContactPicker() {
+        try {
+            pickContactLauncher.launch(null)
+        } catch (_: Exception) {
+            Toast.makeText(this, R.string.msg_contacts_permission_required, Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private fun onContactPicked(uri: Uri) {
+        val numbers = LinkDelivery.loadPhoneNumbers(this, uri)
+        if (numbers.isEmpty()) {
+            Toast.makeText(this, R.string.contact_no_number, Toast.LENGTH_LONG).show()
+            return
+        }
+        if (numbers.size == 1) {
+            showMessengerChooser(numbers.first())
+        } else {
+            val items = numbers.toTypedArray()
+            AlertDialog.Builder(this)
+                .setTitle(R.string.contact_pick_number)
+                .setItems(items) { _, which -> showMessengerChooser(items[which]) }
+                .show()
+        }
+    }
+
+    private fun showMessengerChooser(number: String) {
+        val link = currentLink() ?: return
+        val messengers = Messenger.values()
+        val titles = messengers.map { it.title }.toTypedArray()
+        AlertDialog.Builder(this)
+            .setTitle(R.string.messenger_dialog_title)
+            .setItems(titles) { _, which ->
+                LinkDelivery.openMessenger(this, messengers[which], number, link)
+            }
+            .show()
+    }
+
+    /** Показывает QR-код текущей ссылки в диалоге. */
+    private fun showQrDialog(text: String) {
+        val bmp: Bitmap = LinkDelivery.generateQr(text, 800) ?: run {
+            Toast.makeText(this, "Не удалось сгенерировать QR", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val imageView = ImageView(this).apply {
+            setImageBitmap(bmp)
+            val pad = (16 * resources.displayMetrics.density).toInt()
+            setPadding(pad, pad, pad, pad)
+        }
+        AlertDialog.Builder(this)
+            .setTitle(R.string.qr_dialog_title)
+            .setMessage(R.string.qr_dialog_hint)
+            .setView(imageView)
+            .setPositiveButton(android.R.string.ok, null)
+            .show()
+    }
+
+    /** Запуск сканера QR (ZXing). */
+    private fun startQrScan() {
+        val integrator = IntentIntegrator(this).apply {
+            setPrompt(getString(R.string.scan_prompt))
+            setBeepEnabled(false)
+            setOrientationLocked(false)
+            setDesiredBarcodeFormats(listOf(IntentIntegrator.QR_CODE))
+        }
+        try {
+            qrScanLauncher.launch(integrator.createScanIntent())
+        } catch (_: Exception) {
+            Toast.makeText(this, R.string.msg_cannot_open, Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    /** Обработка отсканированной ссылки (как вставка/переход по deep link). */
+    private fun handleScannedLink(text: String) {
+        val parsed = SdpCodec.parseLink(text)
+        if (parsed == null) {
+            Toast.makeText(this, R.string.msg_invalid_link, Toast.LENGTH_LONG).show()
+            return
+        }
+        when (parsed.type) {
+            SignalType.OFFER -> {
+                // Получен offer — открываем режим принимающего.
+                startActivity(CallActivity.intent(this, CallMode.ANSWERER, parsed.sdp))
+            }
+            SignalType.ANSWER -> {
+                // Инициатор применяет ответную ссылку.
+                startApplyAnswerFlow(parsed.sdp)
+            }
+        }
     }
 
     private fun hasPermissions(): Boolean {
