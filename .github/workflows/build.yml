@@ -1,6 +1,5 @@
 name: Build APK
 
-# Запускается при пуше/PR в main, а также вручную (workflow_dispatch).
 on:
   push:
     branches: [ main ]
@@ -11,6 +10,14 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+
+    # В шаговых if нельзя ссылаться на контекст `secrets` (ошибка парсинга),
+    # поэтому кладём секреты в env джобы и проверяем env.* .
+    env:
+      KS_B64: ${{ secrets.SIGNING_KEYSTORE_BASE64 }}
+      STORE_PASS: ${{ secrets.SIGNING_STORE_PASSWORD }}
+      KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
+      KEY_PASS: ${{ secrets.SIGNING_KEY_PASSWORD }}
 
     steps:
       - name: Checkout
@@ -34,29 +41,19 @@ jobs:
           key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', 'gradle.properties', 'gradle/wrapper/gradle-wrapper.properties') }}
           restore-keys: gradle-${{ runner.os }}-
 
-      # Опциональная подпись release: если заданы секреты репозитория,
-      # keystore декодируется из base64 и формируется keystore.properties.
-      # Если секретов нет — release собирается без подписи (app-*-unsigned.apk).
+      # Подпись release — только если заданы секреты; иначе release собирается
+      # без подписи (app-*-unsigned.apk), debug — всегда.
       - name: Decode signing keystore
-        if: ${{ secrets.SIGNING_KEYSTORE_BASE64 != '' }}
-        env:
-          KS_B64: ${{ secrets.SIGNING_KEYSTORE_BASE64 }}
-        run: |
-          echo "$KS_B64" | base64 -d > "$HOME/release.jks"
+        if: ${{ env.KS_B64 != '' }}
+        run: echo "$KS_B64" | base64 -d > "$HOME/release.jks"
 
       - name: Write keystore.properties
-        if: ${{ secrets.SIGNING_KEYSTORE_BASE64 != '' }}
-        env:
-          STORE_PASS: ${{ secrets.SIGNING_STORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
-          KEY_PASS: ${{ secrets.SIGNING_KEY_PASSWORD }}
+        if: ${{ env.KS_B64 != '' }}
         run: |
-          cat > keystore.properties <<EOF
-          storeFile=$HOME/release.jks
-          storePassword=$STORE_PASS
-          keyAlias=$KEY_ALIAS
-          keyPassword=$KEY_PASS
-          EOF
+          echo "storeFile=$HOME/release.jks" > keystore.properties
+          echo "storePassword=$STORE_PASS" >> keystore.properties
+          echo "keyAlias=$KEY_ALIAS" >> keystore.properties
+          echo "keyPassword=$KEY_PASS" >> keystore.properties
 
       - name: Build debug & release APKs (ABI splits)
         run: ./gradlew assembleDebug assembleRelease --no-daemon --stacktrace
