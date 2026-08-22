@@ -14,7 +14,7 @@ import org.webrtc.DefaultVideoEncoderFactory
 import org.webrtc.EglBase
 import org.webrtc.IceCandidate
 import org.webrtc.IceCandidateErrorEvent
-import org.webrtc.JavaAudioDeviceModule
+import org.webrtc.audio.JavaAudioDeviceModule
 import org.webrtc.MediaConstraints
 import org.webrtc.MediaStream
 import org.webrtc.PeerConnection
@@ -141,7 +141,6 @@ class WebRtcManager(
 
         // 4. PeerConnection с ICE-серверами и Unified Plan.
         val rtcConfig = PeerConnection.RTCConfiguration(AppConfig.ICE_SERVERS).apply {
-            iceTransportPolicy = PeerConnection.IceTransportPolicy.ALL
             bundlePolicy = PeerConnection.BundlePolicy.MAXBUNDLE
             rtcpMuxPolicy = PeerConnection.RtcpMuxPolicy.REQUIRE
             sdpSemantics = PeerConnection.SdpSemantics.UNIFIED_PLAN

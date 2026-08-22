@@ -100,27 +100,21 @@ gradle wrapper --gradle-version 8.5     # либо используйте сис
 
 ## Зависимость WebRTC
 
-Артефакт `org.webrtc:google-webrtc:1.0.32006` изначально публиковался в **JCenter**.
-JCenter переведён в режим read-only, но старые артефакты пока доступны.
-В `settings.gradle` уже подключены `mavenCentral()` и зеркало `jitpack`.
+Оригинальный `org.webrtc:google-webrtc:1.0.32006` больше **не доступен** в публичных
+репозиториях: он публиковался в **JCenter**, который полностью выключен (mavenCentral
+и Google-maven отдают 404). Поэтому в проекте используется поддерживаемый форк
+**`io.getstream:stream-webrtc-android`**, который публикует те же классы в пакете
+`org.webrtc.*` — код менять не нужно (единственное отличие: `JavaAudioDeviceModule`
+лежит в `org.webrtc.audio`, а свойство `iceTransportPolicy` отсутствует — оно равно
+`ALL` по умолчанию).
 
-Если сборка падает с ошибкой резолва зависимости, выберите один из вариантов:
-
-**Вариант A** — подключить legacy jcenter (read-only):
+Подключение (`app/build.gradle`):
 ```groovy
-// settings.gradle → dependencyResolutionManagement.repositories
-maven { url 'https://jcenter.bintray.com' }
-// или просто: jcenter()
+implementation 'io.getstream:stream-webrtc-android:1.3.10'
 ```
 
-**Вариант B** — использовать поддерживаемый форк (рекомендуется для новых сборок):
-```groovy
-// app/build.gradle
-// implementation 'org.webrtc:google-webrtc:1.0.32006'   // закомментировать
-implementation 'io.getstream:stream-webrtc-android:1.0.8' // поддерживаемый форк
-```
-Форк `io.getstream:stream-webrtc-android` имеет совместимый API `org.webrtc.*`,
-поэтому менять код не потребуется.
+Альтернатива (если нужен именно оригинал): добавить legacy jcenter (read-only) —
+но устойчивой загрузки после shutdown JCenter ждать не стоит.
 
 ---
 
