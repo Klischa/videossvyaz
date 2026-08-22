@@ -12,7 +12,7 @@ import com.example.p2pcall.databinding.ActivityMainBinding
 import com.example.p2pcall.signaling.SignalType
 import com.example.p2pcall.signaling.SdpCodec
 import com.example.p2pcall.webrtc.CallMode
-import com.journeyapps.barcodescanner.IntentIntegrator
+import com.google.zxing.integration.android.IntentIntegrator
 
 /**
  * Главный экран: выбор режима и маршрутизация deep link.

@@ -24,7 +24,7 @@ import com.example.p2pcall.signaling.SdpCodec
 import com.example.p2pcall.webrtc.CallMode
 import com.example.p2pcall.webrtc.WebRtcController
 import com.example.p2pcall.webrtc.WebRtcListener
-import com.journeyapps.barcodescanner.IntentIntegrator
+import com.google.zxing.integration.android.IntentIntegrator
 import kotlinx.coroutines.launch
 import org.webrtc.RendererCommon
 
