@@ -112,12 +112,14 @@ class CallActivity : AppCompatActivity(), WebRtcListener {
         if (hasPermissions()) {
             onReadyToProceed()
         } else {
-            permissionLauncher.launch(
-                arrayOf(
-                    android.Manifest.permission.CAMERA,
-                    android.Manifest.permission.RECORD_AUDIO
-                )
+            val perms = mutableListOf(
+                android.Manifest.permission.CAMERA,
+                android.Manifest.permission.RECORD_AUDIO
             )
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                perms.add(android.Manifest.permission.POST_NOTIFICATIONS)
+            }
+            permissionLauncher.launch(perms.toTypedArray())
         }
     }
 
@@ -145,6 +147,9 @@ class CallActivity : AppCompatActivity(), WebRtcListener {
         manager.detachRenderers()
         manager.attachLocalRenderer(binding.localRenderer)
         manager.attachRemoteRenderer(binding.remoteRenderer)
+
+        // Держим процесс живым, пока активен экран звонка (фикс потери сессии на Android 13+).
+        CallService.start(this)
 
         handleIntent(intent)
     }
@@ -613,6 +618,8 @@ class CallActivity : AppCompatActivity(), WebRtcListener {
 
     override fun onDestroy() {
         super.onDestroy()
+        // Снимаем удержание процесса.
+        CallService.stop(this)
         // Отвязываем рендереры от менеджера.
         WebRtcController.manager?.detachRenderers()
         runCatching {
