@@ -239,6 +239,10 @@ class CallActivity : AppCompatActivity(), WebRtcListener {
                 // Автоматически копируем ответ в буфер и подсказываем отправить.
                 answerLink?.let { copyToClipboard(it) }
                 Toast.makeText(this@CallActivity, R.string.msg_autocopy_answer, Toast.LENGTH_LONG).show()
+
+                // Авто-открываем «поделиться», чтобы отправить ответ в один тап
+                // (Android не позволяет отправлять в чужой мессенджер совсем без тапа).
+                answerLink?.let { shareLink(it) }
             } catch (e: Exception) {
                 fail(e.message ?: "createAnswer")
             }
@@ -581,6 +585,31 @@ class CallActivity : AppCompatActivity(), WebRtcListener {
     // ------------------------------------------------------------------------
     //  Жизненный цикл
     // ------------------------------------------------------------------------
+
+    private var lastAppliedClipboard: String? = null
+
+    override fun onResume() {
+        super.onResume()
+        maybeAutoApplyAnswerFromClipboard()
+    }
+
+    /**
+     * Авто-применение ответной ссылки для инициатора: если в буфере обмена
+     * лежит ссылка-ответ (её обычно копируют из мессенджера), применяем её
+     * автоматически — без ручной вставки. Защита от повторов по [lastAppliedClipboard].
+     */
+    private fun maybeAutoApplyAnswerFromClipboard() {
+        // Имеет смысл только для инициатора, ожидающего ответ.
+        if (WebRtcController.localOfferSdp == null || WebRtcController.manager == null) return
+        val text = (getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager)
+            ?.primaryClip?.getItemAt(0)?.text?.toString() ?: return
+        if (text == lastAppliedClipboard) return
+        val parsed = SdpCodec.parseLink(text) ?: return
+        if (parsed.type != SignalType.ANSWER) return
+        lastAppliedClipboard = text
+        Toast.makeText(this, R.string.msg_autocopy_answer, Toast.LENGTH_SHORT).show()
+        startApplyAnswerFlow(parsed.sdp)
+    }
 
     override fun onDestroy() {
         super.onDestroy()
