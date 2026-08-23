@@ -320,10 +320,14 @@ class CallActivity : AppCompatActivity(), WebRtcListener {
 
         binding.btnMic.setOnClickListener {
             micEnabled = WebRtcController.manager?.toggleMic() ?: micEnabled
+            // Красный круг = микрофон выключен (isActivated подсвечивает фон кнопки).
+            binding.btnMic.isActivated = !micEnabled
         }
 
         binding.btnVideo.setOnClickListener {
             videoEnabled = WebRtcController.manager?.toggleVideo() ?: videoEnabled
+            // Красный круг = видео выключено.
+            binding.btnVideo.isActivated = !videoEnabled
             // Визуально гасим локальный рендер при выключенной камере.
             binding.localRenderer.alpha = if (videoEnabled) 1f else 0.3f
         }

@@ -319,7 +319,8 @@
                 android:id="@+id/btnMic"
                 android:layout_width="56dp"
                 android:layout_height="56dp"
-                android:background="?attr/selectableItemBackgroundBorderless"
+                android:background="@drawable/bg_btn_control"
+                android:padding="14dp"
                 android:contentDescription="@string/btn_mic"
                 android:src="@android:drawable/ic_btn_speak_now" />
 
@@ -328,7 +329,8 @@
                 android:layout_width="56dp"
                 android:layout_height="56dp"
                 android:layout_marginStart="20dp"
-                android:background="?attr/selectableItemBackgroundBorderless"
+                android:background="@drawable/bg_btn_control"
+                android:padding="14dp"
                 android:contentDescription="@string/btn_video"
                 android:src="@android:drawable/ic_menu_camera" />
 
@@ -337,7 +339,8 @@
                 android:layout_width="56dp"
                 android:layout_height="56dp"
                 android:layout_marginStart="20dp"
-                android:background="?attr/selectableItemBackgroundBorderless"
+                android:background="@drawable/bg_btn_circle"
+                android:padding="14dp"
                 android:contentDescription="@string/btn_switch"
                 android:src="@android:drawable/ic_menu_rotate" />
 
@@ -346,7 +349,8 @@
                 android:layout_width="56dp"
                 android:layout_height="56dp"
                 android:layout_marginStart="20dp"
-                android:background="@color/danger"
+                android:background="@drawable/bg_btn_hangup"
+                android:padding="14dp"
                 android:contentDescription="@string/btn_hangup"
                 android:src="@android:drawable/ic_menu_call" />
         </LinearLayout>
