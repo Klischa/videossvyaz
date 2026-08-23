@@ -47,6 +47,20 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/subtitleView" />
 
+    <Button
+        android:id="@+id/btnRoomCall"
+        style="@style/Widget.AppCompat.Button.Colored"
+        android:layout_width="0dp"
+        android:layout_height="60dp"
+        android:layout_marginTop="12dp"
+        android:backgroundTint="@color/ok"
+        android:text="@string/btn_room_call"
+        android:textColor="@color/text_primary"
+        android:textSize="16sp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/btnCreateCall" />
+
     <LinearLayout
         android:id="@+id/joinRow"
         android:layout_width="0dp"
@@ -55,7 +69,7 @@
         android:orientation="horizontal"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/btnCreateCall">
+        app:layout_constraintTop_toBottomOf="@id/btnRoomCall">
 
         <Button
             android:id="@+id/btnJoinCall"

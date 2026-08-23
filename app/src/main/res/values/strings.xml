@@ -71,6 +71,13 @@
     <string name="settings_save">Сохранить</string>
     <string name="settings_saved">Настройки сохранены</string>
 
+    <!-- Звонок через комнату -->
+    <string name="btn_room_call">Позвонить (комната)</string>
+    <string name="msg_room_not_configured">Сначала настройте Firebase и код комнаты в Настройках</string>
+    <string name="settings_firebase_url">Firebase URL (https://…firebasedatabase.app)</string>
+    <string name="settings_room_code">Код комнаты (общий ключ)</string>
+    <string name="settings_room_hint">Введите один и тот же код комнаты на обоих телефонах — это ваш постоянный ключ. И укажите URL базы Firebase.</string>
+
     <!-- Сообщения -->
     <string name="msg_copied">Ссылка скопирована в буфер обмена</string>
     <string name="msg_invalid_link">Неверная или повреждённая ссылка</string>

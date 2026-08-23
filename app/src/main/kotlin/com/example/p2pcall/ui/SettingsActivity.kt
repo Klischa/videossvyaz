@@ -27,6 +27,8 @@ class SettingsActivity : AppCompatActivity() {
         binding.turnUrlInput.setText(prefs.getString("turn_url", ""))
         binding.turnUserInput.setText(prefs.getString("turn_user", ""))
         binding.turnPassInput.setText(prefs.getString("turn_pass", ""))
+        binding.firebaseUrlInput.setText(prefs.getString("firebase_url", ""))
+        binding.roomCodeInput.setText(prefs.getString("room_code", ""))
 
         binding.btnSave.setOnClickListener {
             prefs.edit()
@@ -34,6 +36,8 @@ class SettingsActivity : AppCompatActivity() {
                 .putString("turn_url", binding.turnUrlInput.text.toString().trim())
                 .putString("turn_user", binding.turnUserInput.text.toString().trim())
                 .putString("turn_pass", binding.turnPassInput.text.toString().trim())
+                .putString("firebase_url", binding.firebaseUrlInput.text.toString().trim())
+                .putString("room_code", binding.roomCodeInput.text.toString().trim())
                 .apply()
             Toast.makeText(this, R.string.settings_saved, Toast.LENGTH_SHORT).show()
             finish()

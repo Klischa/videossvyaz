@@ -24,5 +24,8 @@ enum class CallMode {
     ANSWERER,
 
     /** Получен answer (по deep link / вставке) — нужно применить его к существующей сессии. Содержит answerSdp. */
-    APPLY_ANSWER
+    APPLY_ANSWER,
+
+    /** Звонок через «комнату» Firebase: роль (offerer/answerer) определяется автоматически. */
+    ROOM
 }

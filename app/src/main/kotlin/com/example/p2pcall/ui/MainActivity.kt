@@ -58,6 +58,9 @@ class MainActivity : AppCompatActivity() {
 
         binding.btnJoinCall.setOnClickListener { showJoinDialog() }
         binding.btnScanQr.setOnClickListener { startQrScan() }
+        binding.btnRoomCall.setOnClickListener {
+            startActivity(CallActivity.intent(this, CallMode.ROOM, sdp = null))
+        }
         binding.btnSettings.setOnClickListener {
             startActivity(Intent(this, SettingsActivity::class.java))
         }

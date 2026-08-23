@@ -23,12 +23,15 @@ import com.example.p2pcall.signaling.LinkDelivery
 import com.example.p2pcall.signaling.Messenger
 import com.example.p2pcall.signaling.SignalType
 import com.example.p2pcall.signaling.SdpCodec
+import com.example.p2pcall.signaling.FirebaseSignaling
 import com.example.p2pcall.webrtc.CallMode
 import com.example.p2pcall.webrtc.WebRtcController
 import com.example.p2pcall.webrtc.WebRtcListener
 import com.google.zxing.integration.android.IntentIntegrator
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.webrtc.RendererCommon
+import java.io.IOException
 
 /**
  * Экран звонка. Обрабатывает три сценария (см. [CallMode]):
@@ -176,6 +179,7 @@ class CallActivity : AppCompatActivity(), WebRtcListener {
                     startApplyAnswerFlow(sdp)
                 }
             }
+            CallMode.ROOM -> startRoomCall()
         }
     }
 
@@ -274,6 +278,68 @@ class CallActivity : AppCompatActivity(), WebRtcListener {
                 hideSignalingPanels()
             } catch (e: Exception) {
                 fail(e.message ?: "applyAnswer")
+            }
+        }
+    }
+
+    // ------------------------------------------------------------------------
+    //  Звонок через «комнату» Firebase (постоянный ключ)
+    // ------------------------------------------------------------------------
+
+    /**
+     * Авто-сигналинг через Firebase-комнату. Роль определяется по наличию offer:
+     * offer ещё нет — мы offerer; offer уже есть — мы answerer.
+     */
+    private fun startRoomCall() {
+        if (!FirebaseSignaling.isConfigured(this)) {
+            Toast.makeText(this, R.string.msg_room_not_configured, Toast.LENGTH_LONG).show()
+            finish()
+            return
+        }
+        val manager = WebRtcController.manager ?: return
+
+        lifecycleScope.launch {
+            try {
+                setStatus(R.string.status_connecting)
+                showProgress(true)
+                manager.initialize()
+
+                val existingOffer = FirebaseSignaling.readOffer(this@CallActivity)
+                if (existingOffer == null) {
+                    // Мы — инициатор: чистим комнату и кладём свой offer.
+                    FirebaseSignaling.clearRoom(this@CallActivity)
+                    val offer = manager.createOffer()
+                    WebRtcController.markOfferer(offer)
+                    if (!FirebaseSignaling.writeOffer(this@CallActivity, SdpCodec.encode(offer))) {
+                        throw IOException("Не удалось записать offer в Firebase")
+                    }
+                    hideSignalingPanels()
+                    setStatus(R.string.status_waiting_answer)
+
+                    // Ждём ответ (~до 90 сек).
+                    var answerEnc: String? = null
+                    var tries = 0
+                    while (answerEnc == null && tries < 60 && WebRtcController.manager != null) {
+                        delay(1500); tries++
+                        answerEnc = FirebaseSignaling.readAnswer(this@CallActivity)
+                    }
+                    val a = answerEnc ?: throw IOException("Ответ не получен (таймаут)")
+                    setStatus(R.string.status_connecting)
+                    manager.applyAnswer(SdpCodec.decode(a))
+                } else {
+                    // Мы — принимающий: отвечаем на чужой offer.
+                    val offerSdp = SdpCodec.decode(existingOffer)
+                    val answer = manager.createAnswer(offerSdp)
+                    WebRtcController.markAnswerer()
+                    if (!FirebaseSignaling.writeAnswer(this@CallActivity, SdpCodec.encode(answer))) {
+                        throw IOException("Не удалось записать answer в Firebase")
+                    }
+                    hideSignalingPanels()
+                    setStatus(R.string.status_connecting)
+                }
+                // Соединение установится/упадёт через onConnected/onFailed.
+            } catch (e: Exception) {
+                fail(e.message ?: "room call")
             }
         }
     }
