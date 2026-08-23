@@ -1,18 +1,26 @@
 name: Build APK
 
+# Запускается:
+#   • при пуше в main,
+#   • при создании тега v* (→ дополнительно публикуется GitHub Release с APK),
+#   • в PR и вручную (workflow_dispatch).
 on:
   push:
     branches: [ main ]
+    tags: [ 'v*' ]
   pull_request:
     branches: [ main ]
   workflow_dispatch:
+
+permissions:
+  contents: write   # нужно для создания GitHub Release при теге
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
-    # В шаговых if нельзя ссылаться на контекст `secrets` (ошибка парсинга),
-    # поэтому кладём секреты в env джобы и проверяем env.* .
+    # Секреты на уровне джобы: в шаговых if нельзя ссылаться на `secrets`,
+    # но можно проверять `env.*`, который заполняется из секретов.
     env:
       KS_B64: ${{ secrets.SIGNING_KEYSTORE_BASE64 }}
       STORE_PASS: ${{ secrets.SIGNING_STORE_PASSWORD }}
@@ -58,10 +66,21 @@ jobs:
       - name: Build debug & release APKs (ABI splits)
         run: ./gradlew assembleDebug assembleRelease --no-daemon --stacktrace
 
-      - name: Upload APKs
+      - name: Upload APKs (artifact)
         uses: actions/upload-artifact@v4
         with:
           name: apks
           path: app/build/outputs/apk/**/*.apk
           if-no-files-found: error
           retention-days: 14
+
+      # При пуше тега v* — создаём GitHub Release и прикрепляем все APK.
+      # Если секреты подписи заданы, в релиз попадают подписанные release-APK.
+      - name: Publish GitHub Release on tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${GITHUB_REF##*/}"
+          gh release create "$TAG" --title "$TAG" --generate-notes \
+            $(find app/build/outputs/apk -name '*.apk')
