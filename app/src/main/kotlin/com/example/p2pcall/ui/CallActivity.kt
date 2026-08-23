@@ -9,6 +9,7 @@ import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Bundle
 import android.view.Gravity
+import android.view.MotionEvent
 import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.Toast
@@ -17,6 +18,7 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
+import com.example.p2pcall.config.AppConfig
 import com.example.p2pcall.R
 import com.example.p2pcall.databinding.ActivityCallBinding
 import com.example.p2pcall.signaling.LinkDelivery
@@ -65,6 +67,13 @@ class CallActivity : AppCompatActivity(), WebRtcListener {
     private var retryCount = 0
     private val maxRetries = 3
     private val retryDelayMs = 3000L
+
+    // Перетаскивание превью.
+    private var previewMoved = false
+    private var downRawX = 0f
+    private var downRawY = 0f
+    private var startLeft = 0
+    private var startTop = 0
 
     /** Запрос разрешений камеры и микрофона. */
     private val permissionLauncher = registerForActivityResult(
@@ -159,6 +168,12 @@ class CallActivity : AppCompatActivity(), WebRtcListener {
 
         // Держим процесс живым, пока активен экран звонка (фикс потери сессии на Android 13+).
         CallService.start(this)
+
+        // Превью: скругление + перетаскивание; индикатор связи — «подключение».
+        setupLocalPreview()
+        binding.btnQuality.isActivated = getSharedPreferences(AppConfig.PREFS, MODE_PRIVATE)
+            .getBoolean("video_economy", false)
+        setQuality(0xFFFFB300.toInt())
 
         handleIntent(intent)
     }
@@ -448,11 +463,19 @@ class CallActivity : AppCompatActivity(), WebRtcListener {
         binding.btnQrAnswer.setOnClickListener { currentLink()?.let { showQrDialog(it) } }
         binding.btnScanAnswerQr.setOnClickListener { startQrScan() }
 
-        // Локальное превью: тап — раскрыть на весь экран (контроль кадра),
-        // тап ещё раз — вернуть в маленькое PiP-окно.
-        binding.localRenderer.setOnClickListener {
-            it.performHapticFeedback(android.view.HapticFeedbackConstants.VIRTUAL_KEY)
-            togglePreview()
+        // Качество видео: живое переключение режима экономии трафика во время звонка.
+        binding.btnQuality.setOnClickListener {
+            val mgr = WebRtcController.manager
+            val newEco = !(mgr?.isEconomyMode() ?: false)
+            mgr?.setVideoMode(newEco)
+            getSharedPreferences(AppConfig.PREFS, MODE_PRIVATE).edit()
+                .putBoolean("video_economy", newEco).apply()
+            binding.btnQuality.isActivated = newEco
+            Toast.makeText(
+                this,
+                if (newEco) "Экономия трафика ВКЛ (320×240@15)" else "Обычное качество (640×480@24)",
+                Toast.LENGTH_SHORT
+            ).show()
         }
     }
 
@@ -472,6 +495,54 @@ class CallActivity : AppCompatActivity(), WebRtcListener {
             lp.gravity = Gravity.TOP or Gravity.END
         }
         binding.localRenderer.layoutParams = lp
+    }
+
+    /** Скруглённые углы превью + перетаскивание по экрану (тап — раскрыть). */
+    private fun setupLocalPreview() {
+        val dp = resources.displayMetrics.density
+        val radius = 16f * dp
+        binding.localRenderer.outlineProvider = object : android.view.ViewOutlineProvider() {
+            override fun getOutline(view: android.view.View, outline: android.graphics.Outline) {
+                outline.setRoundRect(0, 0, view.width, view.height, radius)
+            }
+        }
+        binding.localRenderer.clipToOutline = true
+
+        binding.localRenderer.setOnTouchListener { v, e ->
+            when (e.action) {
+                MotionEvent.ACTION_DOWN -> {
+                    previewMoved = false
+                    downRawX = e.rawX; downRawY = e.rawY
+                    val lp = v.layoutParams as FrameLayout.LayoutParams
+                    lp.gravity = Gravity.TOP or Gravity.START
+                    startLeft = lp.leftMargin; startTop = lp.topMargin
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    val dx = (e.rawX - downRawX).toInt()
+                    val dy = (e.rawY - downRawY).toInt()
+                    if (kotlin.math.abs(dx) > 10 || kotlin.math.abs(dy) > 10) previewMoved = true
+                    if (previewMoved && !previewExpanded) {
+                        val parent = v.parent as android.view.View
+                        val lp = v.layoutParams as FrameLayout.LayoutParams
+                        val maxX = (parent.width - v.width).coerceAtLeast(0)
+                        val maxY = (parent.height - v.height).coerceAtLeast(0)
+                        lp.leftMargin = (startLeft + dx).coerceIn(0, maxX)
+                        lp.topMargin = (startTop + dy).coerceIn(0, maxY)
+                        v.layoutParams = lp
+                    }
+                }
+                MotionEvent.ACTION_UP -> {
+                    v.performHapticFeedback(android.view.HapticFeedbackConstants.VIRTUAL_KEY)
+                    if (!previewMoved) togglePreview()
+                }
+            }
+            true
+        }
+    }
+
+    /** Цвет индикатора качества связи: зелёный/жёлтый/красный. */
+    private fun setQuality(color: Int) {
+        binding.qualityDot.setTextColor(color)
     }
 
     // ------------------------------------------------------------------------
@@ -666,12 +737,14 @@ class CallActivity : AppCompatActivity(), WebRtcListener {
             showProgress(false)
             hideSignalingPanels()
             setStatus(R.string.status_connected)
+            setQuality(0xFF43A047.toInt()) // зелёный — на связи
         }
     }
 
     override fun onDisconnected() {
         runOnUiThread {
             // Кратковременный обрыв: не убиваем звонок, даём WebRTC восстановиться.
+            setQuality(0xFFFFB300.toInt()) // жёлтый — потеря, восстановление
             binding.statusText.text = "Соединение потеряно, восстановление…"
         }
     }
@@ -690,6 +763,7 @@ class CallActivity : AppCompatActivity(), WebRtcListener {
             } else {
                 // Попытки исчерпаны или режим без комнаты — показать детали и закрыть.
                 setStatus(R.string.status_disconnected)
+                setQuality(0xFFE53935.toInt()) // красный — связь потеряна
                 AlertDialog.Builder(this)
                     .setTitle("Соединение не удалось")
                     .setMessage(reason)

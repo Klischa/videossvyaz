@@ -87,6 +87,7 @@ class WebRtcManager(
     private var videoSource: VideoSource? = null
     private var audioSource: org.webrtc.AudioSource? = null
     private var surfaceHelper: SurfaceTextureHelper? = null
+    private var currentEconomy = false
     private var localVideoTrack: VideoTrack? = null
     private var localAudioTrack: AudioTrack? = null
 
@@ -200,6 +201,7 @@ class WebRtcManager(
         val width = if (economy) 320 else 640
         val height = if (economy) 240 else 480
         val fps = if (economy) 15 else 24
+        currentEconomy = economy
 
         // Аудио.
         val audioSrc = f.createAudioSource(MediaConstraints())
@@ -463,6 +465,25 @@ class WebRtcManager(
             override fun onCameraSwitchError(errorDescription: String) {}
         })
     }
+
+    /**
+     * Живое переключение качества видео прямо во время звонка (без переподключения):
+     * экономия трафика — 320×240@15, обычный режим — 640×480@24.
+     */
+    fun setVideoMode(economy: Boolean) {
+        currentEconomy = economy
+        val width = if (economy) 320 else 640
+        val height = if (economy) 240 else 480
+        val fps = if (economy) 15 else 24
+        try {
+            videoCapturer?.changeCaptureFormat(width, height, fps)
+        } catch (_: Exception) {
+            // на некоторых устройствах смена формата на лету недоступна
+        }
+    }
+
+    /** Текущий режим видео (для UI-кнопки). */
+    fun isEconomyMode(): Boolean = currentEconomy
 
     // --------------------------------------------------------------------------
     //  Освобождение ресурсов

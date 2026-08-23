@@ -29,7 +29,7 @@
         android:layout_margin="16dp"
         android:elevation="4dp" />
 
-    <!-- Статус + прогресс (сверху). -->
+    <!-- Статус + индикатор связи + прогресс (сверху). -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -38,15 +38,31 @@
         android:gravity="center"
         android:orientation="vertical">
 
-        <TextView
-            android:id="@+id/statusText"
+        <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:background="@color/bg_panel"
-            android:padding="10dp"
-            android:text="@string/status_initializing"
-            android:textColor="@color/text_primary"
-            android:textSize="14sp" />
+            android:gravity="center"
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/qualityDot"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="6dp"
+                android:text="●"
+                android:textColor="#FFB300"
+                android:textSize="16sp" />
+
+            <TextView
+                android:id="@+id/statusText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:background="@color/bg_panel"
+                android:padding="10dp"
+                android:text="@string/status_initializing"
+                android:textColor="@color/text_primary"
+                android:textSize="14sp" />
+        </LinearLayout>
 
         <ProgressBar
             android:id="@+id/progressBar"
@@ -343,6 +359,16 @@
                 android:padding="14dp"
                 android:contentDescription="@string/btn_switch"
                 android:src="@android:drawable/ic_menu_rotate" />
+
+            <ImageButton
+                android:id="@+id/btnQuality"
+                android:layout_width="56dp"
+                android:layout_height="56dp"
+                android:layout_marginStart="20dp"
+                android:background="@drawable/bg_btn_circle"
+                android:padding="14dp"
+                android:contentDescription="@string/btn_quality"
+                android:src="@android:drawable/ic_menu_sort_by_size" />
 
             <ImageButton
                 android:id="@+id/btnHangup"

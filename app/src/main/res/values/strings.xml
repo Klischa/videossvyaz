@@ -39,6 +39,7 @@
     <string name="btn_mic">Микрофон</string>
     <string name="btn_video">Видео</string>
     <string name="btn_switch">Камера</string>
+    <string name="btn_quality">Качество видео</string>
     <string name="btn_hangup">Завершить</string>
 
     <string name="chooser_share">Отправить ссылку через…</string>
