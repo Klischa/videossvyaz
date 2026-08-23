@@ -67,6 +67,10 @@ class WebRtcManager(
         private const val VIDEO_WIDTH = 1280
         private const val VIDEO_HEIGHT = 720
         private const val VIDEO_FPS = 30
+
+        /** PeerConnectionFactory.initialize() должен вызываться ОДИН раз за процесс. */
+        @Volatile
+        private var nativeInitialized = false
     }
 
     // ----- Фабрика и соединение -------------------------------------------------
@@ -130,11 +134,14 @@ class WebRtcManager(
     fun initialize() {
         if (factory != null) return
 
-        // 1. Инициализация нативной части WebRTC.
-        val initOptions = PeerConnectionFactory.InitializationOptions
-            .builder(context.applicationContext)
-            .createInitializationOptions()
-        PeerConnectionFactory.initialize(initOptions)
+        // 1. Инициализация нативной части WebRTC (ОДИН раз за процесс).
+        if (!nativeInitialized) {
+            val initOptions = PeerConnectionFactory.InitializationOptions
+                .builder(context.applicationContext)
+                .createInitializationOptions()
+            PeerConnectionFactory.initialize(initOptions)
+            nativeInitialized = true
+        }
 
         // 2. Аудио-модуль (Java ADM).
         audioDeviceModule = JavaAudioDeviceModule.builder(context.applicationContext)

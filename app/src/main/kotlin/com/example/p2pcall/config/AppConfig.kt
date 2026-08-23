@@ -42,21 +42,31 @@ object AppConfig {
         list += PeerConnection.IceServer.builder("stun:stun.relay.metered.ca:80").createIceServer()
 
         // Пользовательский TURN из настроек (можно несколько адресов — по строке
-        // или через запятую/точку с запятой; каждый станет отдельным IceServer
-        // с общими логином/паролем). Так WebRTC сам переберёт UDP/TCP/TLS-варианты.
+        // или через запятую/точку с запятой). Берём только корректные turn:/turns:/stun: —
+        // мусор (JSON-скобки, кавычки, поля username/credential из массива Metered)
+        // игнорируем, чтобы некорректный ICE-сервер не ломал createPeerConnection.
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         if (prefs.getBoolean("turn_enabled", false)) {
             val user = prefs.getString("turn_user", null)?.takeIf { it.isNotBlank() }
             val pass = prefs.getString("turn_pass", null)?.takeIf { it.isNotBlank() }
             prefs.getString("turn_url", null)
                 ?.split("\n", ",", ";")
-                ?.map { it.trim() }
-                ?.filter { it.isNotBlank() }
+                ?.map { it.trim().trim('"').trim() }
+                ?.filter { url ->
+                    url.isNotBlank() &&
+                        (url.startsWith("turn:", ignoreCase = true) ||
+                            url.startsWith("turns:", ignoreCase = true) ||
+                            url.startsWith("stun:", ignoreCase = true))
+                }
                 ?.forEach { url ->
-                    val b = PeerConnection.IceServer.builder(url)
-                    user?.let { b.setUsername(it) }
-                    pass?.let { b.setPassword(it) }
-                    list += b.createIceServer()
+                    try {
+                        val b = PeerConnection.IceServer.builder(url)
+                        user?.let { b.setUsername(it) }
+                        pass?.let { b.setPassword(it) }
+                        list += b.createIceServer()
+                    } catch (_: Exception) {
+                        // пропускаем некорректный адрес
+                    }
                 }
         }
         return list
