@@ -99,6 +99,11 @@ class WebRtcManager(
      */
     private val gatheredCandidates = mutableListOf<IceCandidate>()
 
+    // Счётчики кандидатов по типу — для диагностики «ICE failed».
+    private var hostCount = 0
+    private var srflxCount = 0
+    private var relayCount = 0
+
     private var audioManager: AudioManager? = null
     private var released = false
 
@@ -262,6 +267,7 @@ class WebRtcManager(
         // Готовим ожидание завершения ICE gathering ДО установки local description.
         iceGatheringDeferred = CompletableDeferred()
         gatheredCandidates.clear()
+        hostCount = 0; srflxCount = 0; relayCount = 0
 
         val offer = awaitSdpOp { observer ->
             peerConnection!!.createOffer(observer, constraints)
@@ -293,6 +299,7 @@ class WebRtcManager(
 
         iceGatheringDeferred = CompletableDeferred()
         gatheredCandidates.clear()
+        hostCount = 0; srflxCount = 0; relayCount = 0
 
         val answer = awaitSdpOp { observer ->
             peerConnection!!.createAnswer(observer, constraints)
@@ -487,7 +494,10 @@ class WebRtcManager(
 
                 PeerConnection.IceConnectionState.DISCONNECTED -> listener.onDisconnected()
 
-                PeerConnection.IceConnectionState.FAILED -> listener.onFailed("ICE failed")
+                PeerConnection.IceConnectionState.FAILED -> listener.onFailed(
+                    "ICE failed.\nКандидаты: host=$hostCount, srflx=$srflxCount, relay=$relayCount\n" +
+                        "Если relay=0 — TURN недоступен/неверные креды; если >0 — проблема в сети/SDP."
+                )
 
                 else -> Unit
             }
@@ -505,8 +515,16 @@ class WebRtcManager(
 
         override fun onIceCandidate(candidate: IceCandidate?) {
             // Без trickle кандидаты уже включены в localDescription.
-            // Собираем и их — как страховку (см. finalSdpWithCandidates).
-            candidate?.let { gatheredCandidates.add(it) }
+            // Собираем их — как страховку (finalSdpWithCandidates) и для диагностики типов.
+            candidate?.let { c ->
+                gatheredCandidates.add(c)
+                val s = c.sdp ?: ""
+                when {
+                    s.contains("typ relay") -> relayCount++
+                    s.contains("typ srflx") -> srflxCount++
+                    s.contains("typ host") -> hostCount++
+                }
+            }
         }
 
         override fun onIceCandidatesRemoved(p0: Array<out IceCandidate>?) = Unit

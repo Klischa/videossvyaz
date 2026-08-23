@@ -650,7 +650,19 @@ class CallActivity : AppCompatActivity(), WebRtcListener {
     }
 
     override fun onFailed(reason: String) {
-        runOnUiThread { fail(reason) }
+        runOnUiThread {
+            showProgress(false)
+            setStatus(R.string.status_disconnected)
+            AlertDialog.Builder(this)
+                .setTitle("Соединение не удалось")
+                .setMessage(reason)
+                .setCancelable(false)
+                .setPositiveButton("Закрыть") { _, _ ->
+                    WebRtcController.reset()
+                    finish()
+                }
+                .show()
+        }
     }
 
     // ------------------------------------------------------------------------
