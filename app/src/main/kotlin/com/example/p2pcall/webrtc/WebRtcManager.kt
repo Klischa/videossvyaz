@@ -175,6 +175,8 @@ class WebRtcManager(
             // и localDescription содержит все кандидаты (надёжно для non-trickle).
             continualGatheringPolicy =
                 PeerConnection.ContinualGatheringPolicy.GATHER_ONCE
+            // Предвыделенный пул кандидатов — ускоряет ICE-рестарт при восстановлении.
+            iceCandidatePoolSize = 5
         }
         peerConnection = factory?.createPeerConnection(rtcConfig, peerObserver)
             ?: throw IOException("Не удалось создать PeerConnection")

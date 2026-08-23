@@ -60,6 +60,12 @@ class CallActivity : AppCompatActivity(), WebRtcListener {
     private var micEnabled = true
     private var videoEnabled = true
 
+    // Авто-восстановление связи в режиме комнаты.
+    private var isRoomCall = false
+    private var retryCount = 0
+    private val maxRetries = 3
+    private val retryDelayMs = 3000L
+
     /** Запрос разрешений камеры и микрофона. */
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -291,12 +297,30 @@ class CallActivity : AppCompatActivity(), WebRtcListener {
      * offer ещё нет — мы offerer; offer уже есть — мы answerer.
      */
     private fun startRoomCall() {
+        isRoomCall = true
+        retryCount = 0
+        runRoomNegotiation()
+    }
+
+    /** Авто-восстановление: повторить согласование через комнату. */
+    private fun retryRoomCall() {
+        retryCount++
+        binding.statusText.text = "Соединение потеряно, переподключение… (попытка $retryCount)"
+        runRoomNegotiation()
+    }
+
+    private fun runRoomNegotiation() {
         if (!FirebaseSignaling.isConfigured(this)) {
             Toast.makeText(this, R.string.msg_room_not_configured, Toast.LENGTH_LONG).show()
             finish()
             return
         }
-        val manager = WebRtcController.manager ?: return
+        // Свежий менеджер для (пере)согласования.
+        WebRtcController.reset()
+        val manager = WebRtcController.getOrCreate(this).also { it.setListener(this) }
+        manager.detachRenderers()
+        manager.attachLocalRenderer(binding.localRenderer)
+        manager.attachRemoteRenderer(binding.remoteRenderer)
 
         lifecycleScope.launch {
             try {
@@ -339,7 +363,7 @@ class CallActivity : AppCompatActivity(), WebRtcListener {
                 }
                 // Соединение установится/упадёт через onConnected/onFailed.
             } catch (e: Exception) {
-                fail(e.message ?: "room call")
+                onFailed(e.message ?: "room call")
             }
         }
     }
@@ -646,22 +670,36 @@ class CallActivity : AppCompatActivity(), WebRtcListener {
     }
 
     override fun onDisconnected() {
-        runOnUiThread { setStatus(R.string.status_disconnected) }
+        runOnUiThread {
+            // Кратковременный обрыв: не убиваем звонок, даём WebRTC восстановиться.
+            binding.statusText.text = "Соединение потеряно, восстановление…"
+        }
     }
 
     override fun onFailed(reason: String) {
         runOnUiThread {
             showProgress(false)
-            setStatus(R.string.status_disconnected)
-            AlertDialog.Builder(this)
-                .setTitle("Соединение не удалось")
-                .setMessage(reason)
-                .setCancelable(false)
-                .setPositiveButton("Закрыть") { _, _ ->
-                    WebRtcController.reset()
-                    finish()
+            // В режиме комнаты пробуем автоматически переподключиться.
+            if (isRoomCall && retryCount < maxRetries) {
+                binding.statusText.text =
+                    "Соединение потеряно, переподключение… (попытка ${retryCount + 1}/$maxRetries)"
+                lifecycleScope.launch {
+                    delay(retryDelayMs)
+                    retryRoomCall()
                 }
-                .show()
+            } else {
+                // Попытки исчерпаны или режим без комнаты — показать детали и закрыть.
+                setStatus(R.string.status_disconnected)
+                AlertDialog.Builder(this)
+                    .setTitle("Соединение не удалось")
+                    .setMessage(reason)
+                    .setCancelable(false)
+                    .setPositiveButton("Закрыть") { _, _ ->
+                        WebRtcController.reset()
+                        finish()
+                    }
+                    .show()
+            }
         }
     }
 
