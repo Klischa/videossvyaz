@@ -12,7 +12,7 @@ import android.widget.Toast
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.BinaryBitmap
 import com.google.zxing.DecodeHintType
-import com.google.zxing.HybridBinarizer
+import com.google.zxing.common.HybridBinarizer
 import com.google.zxing.MultiFormatReader
 import com.google.zxing.RGBLuminanceSource
 import com.journeyapps.barcodescanner.BarcodeEncoder
