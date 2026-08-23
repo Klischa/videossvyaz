@@ -617,28 +617,9 @@ class CallActivity : AppCompatActivity(), WebRtcListener {
             Toast.makeText(this, R.string.contact_no_number, Toast.LENGTH_LONG).show()
             return
         }
-        if (numbers.size == 1) {
-            showMessengerChooser(numbers.first())
-        } else {
-            val items = numbers.toTypedArray()
-            AlertDialog.Builder(this)
-                .setTitle(R.string.contact_pick_number)
-                .setItems(items) { _, which -> showMessengerChooser(items[which]) }
-                .show()
-        }
-    }
-
-    private fun showMessengerChooser(number: String) {
-        val link = currentLink() ?: return
-        // Показываем только установленные мессенджеры (SMS и системный выбор — всегда).
-        val messengers = LinkDelivery.availableMessengers(this)
-        val titles = messengers.map { it.title }.toTypedArray()
-        AlertDialog.Builder(this)
-            .setTitle(R.string.messenger_dialog_title)
-            .setItems(titles) { _, which ->
-                LinkDelivery.openMessenger(this, messengers[which], number, link)
-            }
-            .show()
+        // Сразу открываем системный список приложений для отправки приглашения
+        // (SMS, мессенджеры — все сразу); ссылка подставлена в поле ввода.
+        currentLink()?.let { shareLink(it) }
     }
 
     /** Показывает QR-код текущей ссылки в диалоге. */
