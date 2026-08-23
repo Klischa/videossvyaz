@@ -146,7 +146,7 @@ class WebRtcManager(
             .createPeerConnectionFactory()
 
         // 4. PeerConnection с ICE-серверами и Unified Plan.
-        val rtcConfig = PeerConnection.RTCConfiguration(AppConfig.ICE_SERVERS).apply {
+        val rtcConfig = PeerConnection.RTCConfiguration(AppConfig.iceServers(context.applicationContext)).apply {
             bundlePolicy = PeerConnection.BundlePolicy.MAXBUNDLE
             rtcpMuxPolicy = PeerConnection.RtcpMuxPolicy.REQUIRE
             sdpSemantics = PeerConnection.SdpSemantics.UNIFIED_PLAN

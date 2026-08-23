@@ -60,6 +60,17 @@
     <string name="scan_method_image">Из изображения</string>
     <string name="qr_not_found">QR-код не найден на изображении</string>
 
+    <!-- Настройки TURN -->
+    <string name="btn_settings">Настройки</string>
+    <string name="settings_title">Свой TURN-сервер</string>
+    <string name="settings_hint">Если звонок падает с «ICE failed» (NAT/мобильная сеть) — впишите свой coturn. Логин/пароль оставьте пустыми, если сервер без аутентификации.</string>
+    <string name="settings_turn_switch">Использовать свой TURN</string>
+    <string name="settings_turn_url">TURN-сервер (turn:host:port)</string>
+    <string name="settings_turn_user">Логин</string>
+    <string name="settings_turn_pass">Пароль</string>
+    <string name="settings_save">Сохранить</string>
+    <string name="settings_saved">Настройки сохранены</string>
+
     <!-- Сообщения -->
     <string name="msg_copied">Ссылка скопирована в буфер обмена</string>
     <string name="msg_invalid_link">Неверная или повреждённая ссылка</string>

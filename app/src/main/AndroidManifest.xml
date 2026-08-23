@@ -69,6 +69,13 @@
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation|keyboardHidden"
             android:screenOrientation="portrait" />
 
+        <!-- Экран настроек (свой TURN/coturn). -->
+        <activity
+            android:name=".ui.SettingsActivity"
+            android:exported="false"
+            android:label="@string/settings_title"
+            android:parentActivityName=".ui.MainActivity" />
+
         <!-- Активити сканера ZXing. exported задаём явно (рекомендуется для
              targetSdk 31+); остальные атрибуты наследуем от библиотеки —
              конфликта при слиянии нет, т.к. библиотека exported не задаёт. -->

@@ -1,14 +1,18 @@
 package com.example.p2pcall.config
 
+import android.content.Context
 import org.webrtc.PeerConnection
 
 /**
  * Глобальная конфигурация приложения.
  *
  * Смените [BASE_URL] на свой домен (для App Links) и при необходимости —
- * список ICE-серверов (добавьте TURN для пробития симметричных NAT).
+ * список ICE-серверов (через настройки можно добавить свой TURN/coturn).
  */
 object AppConfig {
+
+    /** Имя файла SharedPreferences для настроек (TURN и т.п.). */
+    const val PREFS = "p2pcall_prefs"
 
     /** Базовый URL, из которого формируются ссылки-приглашения. */
     const val BASE_URL = "https://yourdomain.com/call"
@@ -16,35 +20,46 @@ object AppConfig {
     /** Альтернативная кастомная схема (для тестирования без домена). */
     const val CUSTOM_SCHEME_URL = "myapp://call"
 
-    /**
-     * STUN + TURN. Одних STUN часто не хватает для пробития NAT (особенно на
-     * мобильных сетях) — поэтому добавлен публичный TURN OpenRelay.
-     *
-     * Для надёжности в проде поднимите свой coturn и подставьте сюда
-     * (рекомендация из ТЗ: ручное добавление TURN при проблемах с NAT).
-     */
-    val ICE_SERVERS: List<PeerConnection.IceServer> = listOf(
-        // STUN
-        PeerConnection.IceServer.builder("stun:stun.l.google.com:19302").createIceServer(),
-        PeerConnection.IceServer.builder("stun:stun1.l.google.com:19302").createIceServer(),
-        PeerConnection.IceServer.builder("stun:openrelay.metered.ca:80").createIceServer(),
-
-        // TURN (OpenRelay, публичные креды) — для пробития симметричного NAT.
-        PeerConnection.IceServer.builder("turn:openrelay.metered.ca:80")
-            .setUsername("openrelayproject").setPassword("openrelayproject").createIceServer(),
-        PeerConnection.IceServer.builder("turn:openrelay.metered.ca:443")
-            .setUsername("openrelayproject").setPassword("openrelayproject").createIceServer(),
-        PeerConnection.IceServer.builder("turn:openrelay.metered.ca:443?transport=tcp")
-            .setUsername("openrelayproject").setPassword("openrelayproject").createIceServer(),
-
-        // Пример своего TURN (раскомментируйте и подставьте свои данные):
-        // PeerConnection.IceServer.builder("turn:turn.example.com:3478")
-        //     .setUsername("user").setPassword("pass").createIceServer()
-    )
-
     /** Таймаут ожидания завершения ICE gathering (мс). */
     const val ICE_GATHERING_TIMEOUT_MS = 15_000L
 
     /** Минимальная версия разрешения для захвата видео (API 23+). */
     const val CAMERA_PERMISSION_REQUEST = 1001
+
+    /**
+     * Список ICE-серверов: базовые STUN + публичный TURN (OpenRelay),
+     * плюс пользовательский TURN из настроек (если включён).
+     *
+     * Если соединение падает с ICE failed — добавьте свой coturn в настройках.
+     */
+    fun iceServers(context: Context): List<PeerConnection.IceServer> {
+        val list = mutableListOf<PeerConnection.IceServer>()
+
+        // STUN
+        list += PeerConnection.IceServer.builder("stun:stun.l.google.com:19302").createIceServer()
+        list += PeerConnection.IceServer.builder("stun:stun1.l.google.com:19302").createIceServer()
+        list += PeerConnection.IceServer.builder("stun:openrelay.metered.ca:80").createIceServer()
+
+        // TURN (OpenRelay, публичные креды) — для пробития симметричного NAT.
+        list += PeerConnection.IceServer.builder("turn:openrelay.metered.ca:80")
+            .setUsername("openrelayproject").setPassword("openrelayproject").createIceServer()
+        list += PeerConnection.IceServer.builder("turn:openrelay.metered.ca:443")
+            .setUsername("openrelayproject").setPassword("openrelayproject").createIceServer()
+        list += PeerConnection.IceServer.builder("turn:openrelay.metered.ca:443?transport=tcp")
+            .setUsername("openrelayproject").setPassword("openrelayproject").createIceServer()
+
+        // Пользовательский TURN из настроек.
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        if (prefs.getBoolean("turn_enabled", false)) {
+            val url = prefs.getString("turn_url", null)
+            if (!url.isNullOrBlank()) {
+                val b = PeerConnection.IceServer.builder(url)
+                prefs.getString("turn_user", null)?.takeIf { it.isNotBlank() }?.let { b.setUsername(it) }
+                prefs.getString("turn_pass", null)?.takeIf { it.isNotBlank() }?.let { b.setPassword(it) }
+                list += b.createIceServer()
+            }
+        }
+        return list
+    }
 }
+

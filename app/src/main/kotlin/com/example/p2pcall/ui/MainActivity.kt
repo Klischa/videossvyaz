@@ -58,6 +58,9 @@ class MainActivity : AppCompatActivity() {
 
         binding.btnJoinCall.setOnClickListener { showJoinDialog() }
         binding.btnScanQr.setOnClickListener { startQrScan() }
+        binding.btnSettings.setOnClickListener {
+            startActivity(Intent(this, SettingsActivity::class.java))
+        }
 
         // Лёгкая вибрация при нажатии всех кнопок.
         binding.root.applyHapticToClickables()
