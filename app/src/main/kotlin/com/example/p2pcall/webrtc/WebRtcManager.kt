@@ -523,6 +523,7 @@ class WebRtcManager(
                     s.contains("typ relay") -> relayCount++
                     s.contains("typ srflx") -> srflxCount++
                     s.contains("typ host") -> hostCount++
+                    else -> Unit
                 }
             }
         }
