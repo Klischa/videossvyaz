@@ -39,18 +39,25 @@ object AppConfig {
         // STUN
         list += PeerConnection.IceServer.builder("stun:stun.l.google.com:19302").createIceServer()
         list += PeerConnection.IceServer.builder("stun:stun1.l.google.com:19302").createIceServer()
-        list += PeerConnection.IceServer.builder("stun:stun2.l.google.com:19302").createIceServer()
+        list += PeerConnection.IceServer.builder("stun:stun.relay.metered.ca:80").createIceServer()
 
-        // Пользовательский TURN из настроек.
+        // Пользовательский TURN из настроек (можно несколько адресов — по строке
+        // или через запятую/точку с запятой; каждый станет отдельным IceServer
+        // с общими логином/паролем). Так WebRTC сам переберёт UDP/TCP/TLS-варианты.
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         if (prefs.getBoolean("turn_enabled", false)) {
-            val url = prefs.getString("turn_url", null)
-            if (!url.isNullOrBlank()) {
-                val b = PeerConnection.IceServer.builder(url)
-                prefs.getString("turn_user", null)?.takeIf { it.isNotBlank() }?.let { b.setUsername(it) }
-                prefs.getString("turn_pass", null)?.takeIf { it.isNotBlank() }?.let { b.setPassword(it) }
-                list += b.createIceServer()
-            }
+            val user = prefs.getString("turn_user", null)?.takeIf { it.isNotBlank() }
+            val pass = prefs.getString("turn_pass", null)?.takeIf { it.isNotBlank() }
+            prefs.getString("turn_url", null)
+                ?.split("\n", ",", ";")
+                ?.map { it.trim() }
+                ?.filter { it.isNotBlank() }
+                ?.forEach { url ->
+                    val b = PeerConnection.IceServer.builder(url)
+                    user?.let { b.setUsername(it) }
+                    pass?.let { b.setPassword(it) }
+                    list += b.createIceServer()
+                }
         }
         return list
     }
