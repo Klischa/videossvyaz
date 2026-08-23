@@ -9,6 +9,7 @@ import android.net.Uri
 import android.os.Build
 import android.provider.ContactsContract
 import android.widget.Toast
+import androidx.core.content.FileProvider
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.BinaryBitmap
 import com.google.zxing.DecodeHintType
@@ -16,6 +17,8 @@ import com.google.zxing.common.HybridBinarizer
 import com.google.zxing.MultiFormatReader
 import com.google.zxing.RGBLuminanceSource
 import com.journeyapps.barcodescanner.BarcodeEncoder
+import java.io.File
+import java.io.FileOutputStream
 import java.net.URLEncoder
 
 /**
@@ -124,6 +127,27 @@ object LinkDelivery {
         resolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, opts) }
     } catch (e: Exception) {
         null
+    }
+
+    /**
+     * Сохраняет Bitmap QR-кода во временный PNG и открывает системный «поделиться»,
+     * чтобы отправить его как файл-изображение (а не как ссылку).
+     */
+    fun shareImage(context: Context, bitmap: Bitmap): Boolean = try {
+        val dir = File(context.cacheDir, "shared").apply { mkdirs() }
+        val file = File(dir, "qr_${System.currentTimeMillis()}.png")
+        FileOutputStream(file).use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
+
+        val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+        val intent = Intent(Intent.ACTION_SEND).apply {
+            type = "image/png"
+            putExtra(Intent.EXTRA_STREAM, uri)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        context.startActivity(Intent.createChooser(intent, "Поделиться QR-кодом"))
+        true
+    } catch (e: Exception) {
+        false
     }
 
     /**

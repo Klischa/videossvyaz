@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Пути, которые FileProvider может отдавать наружу (для шаринга QR как файла). -->
+<paths>
+    <cache-path name="shared" path="shared/" />
+</paths>

@@ -463,6 +463,12 @@ class CallActivity : AppCompatActivity(), WebRtcListener {
             .setTitle(R.string.qr_dialog_title)
             .setMessage(R.string.qr_dialog_hint)
             .setView(imageView)
+            .setNegativeButton(R.string.qr_share_image) { _, _ ->
+                // Отправить QR как файл-изображение (PNG), а не как ссылку.
+                if (!LinkDelivery.shareImage(this, bmp)) {
+                    Toast.makeText(this, R.string.qr_share_failed, Toast.LENGTH_SHORT).show()
+                }
+            }
             .setPositiveButton(android.R.string.ok, null)
             .show()
     }

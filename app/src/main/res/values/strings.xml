@@ -52,6 +52,8 @@
     <!-- QR -->
     <string name="qr_dialog_title">QR-код ссылки</string>
     <string name="qr_dialog_hint">Покажите этот код собеседнику — пусть отсканирует его в приложении.</string>
+    <string name="qr_share_image">Поделиться PNG</string>
+    <string name="qr_share_failed">Не удалось подготовить изображение</string>
     <string name="scan_prompt">Наведите камеру на QR-код со ссылкой</string>
     <string name="scan_method_title">Сканировать QR</string>
     <string name="scan_method_camera">Снять камерой</string>
