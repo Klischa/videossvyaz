@@ -150,8 +150,10 @@ class WebRtcManager(
             bundlePolicy = PeerConnection.BundlePolicy.MAXBUNDLE
             rtcpMuxPolicy = PeerConnection.RtcpMuxPolicy.REQUIRE
             sdpSemantics = PeerConnection.SdpSemantics.UNIFIED_PLAN
+            // GATHER_ONCE: после начального сбора гарантированно приходит COMPLETE,
+            // и localDescription содержит все кандидаты (надёжно для non-trickle).
             continualGatheringPolicy =
-                PeerConnection.ContinualGatheringPolicy.GATHER_CONTINUALLY
+                PeerConnection.ContinualGatheringPolicy.GATHER_ONCE
         }
         peerConnection = factory?.createPeerConnection(rtcConfig, peerObserver)
             ?: throw IOException("Не удалось создать PeerConnection")
@@ -337,16 +339,14 @@ class WebRtcManager(
     }
 
     /**
-     * Берём финальный SDP из localDescription. Обычно кандидаты уже внутри
-     * (библиотека добавляет их после завершения gathering). Если их там нет —
-     * вмерживаем собранные вручную.
+     * Берём финальный SDP из localDescription и **объединяем** с собранными
+     * кандидатами (на случай, если библиотека поместила в localDescription не все).
+     * Дубли пропускаем — так в SDP гарантированно есть все host/srflx/relay кандидаты.
      */
     private fun finalSdpWithCandidates(): String {
-        var sdp = peerConnection!!.localDescription.description
-        if (!sdp.contains("a=candidate") && gatheredCandidates.isNotEmpty()) {
-            sdp = mergeCandidates(sdp, gatheredCandidates.toList())
-        }
-        return sdp
+        val base = peerConnection!!.localDescription.description
+        val missing = gatheredCandidates.filter { c -> !base.contains("a=" + c.sdp) }
+        return if (missing.isEmpty()) base else mergeCandidates(base, missing)
     }
 
     /**

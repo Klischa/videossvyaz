@@ -27,10 +27,11 @@ object AppConfig {
     const val CAMERA_PERMISSION_REQUEST = 1001
 
     /**
-     * Список ICE-серверов: базовые STUN + публичный TURN (OpenRelay),
-     * плюс пользовательский TURN из настроек (если включён).
+     * Список ICE-серверов: базовые STUN + пользовательский TURN из настроек.
      *
-     * Если соединение падает с ICE failed — добавьте свой coturn в настройках.
+     * Бесплатный публичный TURN OpenRelay прекратил работу (порты/DNS не отвечают),
+     * поэтому он удалён. Для соединения через симметричный NAT (разные мобильные сети)
+     * ОБЯЗАТЕЛЬНО впишите свой TURN/coturn в Настройках (см. COTURN.md).
      */
     fun iceServers(context: Context): List<PeerConnection.IceServer> {
         val list = mutableListOf<PeerConnection.IceServer>()
@@ -38,15 +39,7 @@ object AppConfig {
         // STUN
         list += PeerConnection.IceServer.builder("stun:stun.l.google.com:19302").createIceServer()
         list += PeerConnection.IceServer.builder("stun:stun1.l.google.com:19302").createIceServer()
-        list += PeerConnection.IceServer.builder("stun:openrelay.metered.ca:80").createIceServer()
-
-        // TURN (OpenRelay, публичные креды) — для пробития симметричного NAT.
-        list += PeerConnection.IceServer.builder("turn:openrelay.metered.ca:80")
-            .setUsername("openrelayproject").setPassword("openrelayproject").createIceServer()
-        list += PeerConnection.IceServer.builder("turn:openrelay.metered.ca:443")
-            .setUsername("openrelayproject").setPassword("openrelayproject").createIceServer()
-        list += PeerConnection.IceServer.builder("turn:openrelay.metered.ca:443?transport=tcp")
-            .setUsername("openrelayproject").setPassword("openrelayproject").createIceServer()
+        list += PeerConnection.IceServer.builder("stun:stun2.l.google.com:19302").createIceServer()
 
         // Пользовательский TURN из настроек.
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
