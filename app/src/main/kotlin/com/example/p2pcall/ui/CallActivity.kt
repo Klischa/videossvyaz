@@ -399,7 +399,8 @@ class CallActivity : AppCompatActivity(), WebRtcListener {
 
     private fun showMessengerChooser(number: String) {
         val link = currentLink() ?: return
-        val messengers = Messenger.values()
+        // Показываем только установленные мессенджеры (SMS и системный выбор — всегда).
+        val messengers = LinkDelivery.availableMessengers(this)
         val titles = messengers.map { it.title }.toTypedArray()
         AlertDialog.Builder(this)
             .setTitle(R.string.messenger_dialog_title)

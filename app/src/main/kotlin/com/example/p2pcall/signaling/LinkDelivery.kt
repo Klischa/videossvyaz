@@ -2,8 +2,10 @@ package com.example.p2pcall.signaling
 
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.net.Uri
+import android.os.Build
 import android.provider.ContactsContract
 import android.widget.Toast
 import com.google.zxing.BarcodeFormat
@@ -64,6 +66,33 @@ object LinkDelivery {
 
     /** Очищает номер до цифр (wa.me ждёт international без '+'). */
     fun toDigits(raw: String): String = raw.filter { it.isDigit() }
+
+    /** Пакеты конкретных приложений (для проверки установки). */
+    private const val WHATSAPP_PKG = "com.whatsapp"
+    private const val TELEGRAM_PKG = "org.telegram.messenger"
+
+    /** Установлено ли приложение-мессенджер на устройстве. */
+    fun isAvailable(context: Context, messenger: Messenger): Boolean = when (messenger) {
+        Messenger.WHATSAPP -> isPackageInstalled(context, WHATSAPP_PKG)
+        Messenger.TELEGRAM -> isPackageInstalled(context, TELEGRAM_PKG)
+        // SMS и системный выбор доступны всегда.
+        Messenger.SMS, Messenger.SYSTEM -> true
+    }
+
+    /** Список мессенджеров, доступных на устройстве (всегда включает SMS и системный выбор). */
+    fun availableMessengers(context: Context): List<Messenger> =
+        Messenger.values().filter { isAvailable(context, it) }
+
+    private fun isPackageInstalled(context: Context, pkg: String): Boolean = try {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            context.packageManager.getPackageInfo(pkg, PackageManager.PackageInfoFlags.of(0)) != null
+        } else {
+            @Suppress("DEPRECATION")
+            context.packageManager.getPackageInfo(pkg, 0) != null
+        }
+    } catch (_: Exception) {
+        false
+    }
 
     /** Генерация QR-кода в Bitmap (null при ошибке). */
     fun generateQr(text: String, size: Int): Bitmap? = try {
