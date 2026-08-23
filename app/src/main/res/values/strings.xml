@@ -77,6 +77,8 @@
     <string name="settings_firebase_url">Firebase URL (https://…firebasedatabase.app)</string>
     <string name="settings_room_code">Код комнаты (общий ключ)</string>
     <string name="settings_room_hint">Введите один и тот же код комнаты на обоих телефонах — это ваш постоянный ключ. И укажите URL базы Firebase.</string>
+    <string name="settings_video_economy">Экономия трафика</string>
+    <string name="settings_video_economy_hint">Видео для плохого интернета: ниже разрешение/FPS/битрейт — картинка устойчивее при потере пакетов (включите при нестабильной связи).</string>
 
     <!-- Сообщения -->
     <string name="msg_copied">Ссылка скопирована в буфер обмена</string>
