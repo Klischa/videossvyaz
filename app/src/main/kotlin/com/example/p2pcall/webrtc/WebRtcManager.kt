@@ -108,6 +108,10 @@ class WebRtcManager(
     private var srflxCount = 0
     private var relayCount = 0
 
+    // Сколько кандидатов пришло в удалённом SDP и история состояний ICE.
+    private var remoteCandidateCount = 0
+    private val iceStateLog = mutableListOf<String>()
+
     private var audioManager: AudioManager? = null
     private var released = false
 
@@ -296,7 +300,9 @@ class WebRtcManager(
         ensureReady()
         val constraints = receiveConstraints()
 
-        // Сначала remote (offer).
+        // Сначала remote (offer). Считаем кандидаты в нём — для диагностики.
+        iceStateLog.clear()
+        remoteCandidateCount = remoteOfferSdp.split("\n").count { it.contains("a=candidate") }
         awaitSdpOp { observer ->
             peerConnection!!.setRemoteDescription(
                 observer,
@@ -326,6 +332,7 @@ class WebRtcManager(
      */
     suspend fun applyAnswer(remoteAnswerSdp: String) {
         ensureReady()
+        remoteCandidateCount = remoteAnswerSdp.split("\n").count { it.contains("a=candidate") }
         awaitSdpOp { observer ->
             peerConnection!!.setRemoteDescription(
                 observer,
@@ -495,6 +502,7 @@ class WebRtcManager(
         override fun onSignalingChange(p0: PeerConnection.SignalingState?) = Unit
 
         override fun onIceConnectionChange(state: PeerConnection.IceConnectionState?) {
+            state?.name?.let { iceStateLog.add(it) }
             when (state) {
                 PeerConnection.IceConnectionState.CONNECTED,
                 PeerConnection.IceConnectionState.COMPLETED -> listener.onConnected()
@@ -502,8 +510,11 @@ class WebRtcManager(
                 PeerConnection.IceConnectionState.DISCONNECTED -> listener.onDisconnected()
 
                 PeerConnection.IceConnectionState.FAILED -> listener.onFailed(
-                    "ICE failed.\nКандидаты: host=$hostCount, srflx=$srflxCount, relay=$relayCount\n" +
-                        "Если relay=0 — TURN недоступен/неверные креды; если >0 — проблема в сети/SDP."
+                    "ICE failed.\n" +
+                        "Локально: host=$hostCount, srflx=$srflxCount, relay=$relayCount.\n" +
+                        "Удалённых кандидатов: $remoteCandidateCount.\n" +
+                        "Состояния ICE: ${iceStateLog.joinToString(" -> ")}.\n" +
+                        "Если удалённых=0 — кандидаты теряются при обмене SDP; если >0 — проблема сети/relay."
                 )
 
                 else -> Unit
