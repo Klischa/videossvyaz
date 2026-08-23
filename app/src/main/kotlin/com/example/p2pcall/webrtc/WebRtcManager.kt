@@ -93,6 +93,12 @@ class WebRtcManager(
     // ----- ICE gathering (без trickle) ------------------------------------------
     private var iceGatheringDeferred: CompletableDeferred<Unit>? = null
 
+    /**
+     * Собранные ICE-кандидаты (страховка: если localDescription по какой-то
+     * причине не содержит их, мы вмержим их вручную перед отправкой SDP).
+     */
+    private val gatheredCandidates = mutableListOf<IceCandidate>()
+
     private var audioManager: AudioManager? = null
     private var released = false
 
@@ -253,6 +259,7 @@ class WebRtcManager(
 
         // Готовим ожидание завершения ICE gathering ДО установки local description.
         iceGatheringDeferred = CompletableDeferred()
+        gatheredCandidates.clear()
 
         val offer = awaitSdpOp { observer ->
             peerConnection!!.createOffer(observer, constraints)
@@ -263,7 +270,7 @@ class WebRtcManager(
         }
 
         awaitIceGatheringComplete()
-        return peerConnection!!.localDescription.description
+        return finalSdpWithCandidates()
     }
 
     /**
@@ -283,6 +290,7 @@ class WebRtcManager(
         }
 
         iceGatheringDeferred = CompletableDeferred()
+        gatheredCandidates.clear()
 
         val answer = awaitSdpOp { observer ->
             peerConnection!!.createAnswer(observer, constraints)
@@ -293,7 +301,7 @@ class WebRtcManager(
         }
 
         awaitIceGatheringComplete()
-        return peerConnection!!.localDescription.description
+        return finalSdpWithCandidates()
     }
 
     /**
@@ -326,6 +334,41 @@ class WebRtcManager(
         withTimeoutOrNull(AppConfig.ICE_GATHERING_TIMEOUT_MS) {
             iceGatheringDeferred?.await()
         }
+    }
+
+    /**
+     * Берём финальный SDP из localDescription. Обычно кандидаты уже внутри
+     * (библиотека добавляет их после завершения gathering). Если их там нет —
+     * вмерживаем собранные вручную.
+     */
+    private fun finalSdpWithCandidates(): String {
+        var sdp = peerConnection!!.localDescription.description
+        if (!sdp.contains("a=candidate") && gatheredCandidates.isNotEmpty()) {
+            sdp = mergeCandidates(sdp, gatheredCandidates.toList())
+        }
+        return sdp
+    }
+
+    /**
+     * Вставляет строки a=candidate в первую m-секцию (при bundle весь транспорт
+     * общий — этого достаточно). Фолбэк на случай, если localDescription без кандидатов.
+     */
+    private fun mergeCandidates(sdp: String, candidates: List<IceCandidate>): String {
+        val nl = if (sdp.contains("\r\n")) "\r\n" else "\n"
+        val candLines = candidates.map { "a=" + it.sdp }
+        val lines = sdp.split(nl).toMutableList()
+        // Точка вставки — перед второй строкой "m=" (внутрь первой m-секции);
+        // если секция одна — в самый конец.
+        var mCount = 0
+        var insertAt = lines.size
+        for (i in lines.indices) {
+            if (lines[i].startsWith("m=")) {
+                mCount++
+                if (mCount == 2) { insertAt = i; break }
+            }
+        }
+        lines.addAll(insertAt, candLines)
+        return lines.joinToString(nl)
     }
 
     private fun ensureReady() {
@@ -461,8 +504,9 @@ class WebRtcManager(
         }
 
         override fun onIceCandidate(candidate: IceCandidate?) {
-            // При выключенном trickle кандидаты уже включены в localDescription,
-            // поэтому отдельно их пересылать не нужно.
+            // Без trickle кандидаты уже включены в localDescription.
+            // Собираем и их — как страховку (см. finalSdpWithCandidates).
+            candidate?.let { gatheredCandidates.add(it) }
         }
 
         override fun onIceCandidatesRemoved(p0: Array<out IceCandidate>?) = Unit
