@@ -8,6 +8,8 @@ import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Bundle
+import android.view.Gravity
+import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
@@ -104,6 +106,8 @@ class CallActivity : AppCompatActivity(), WebRtcListener {
         setContentView(binding.root)
 
         wireControls()
+        // Лёгкая вибрация при нажатии всех кнопок.
+        binding.root.applyHapticToClickables()
 
         if (hasPermissions()) {
             onReadyToProceed()
@@ -344,6 +348,31 @@ class CallActivity : AppCompatActivity(), WebRtcListener {
         binding.btnContactAnswer.setOnClickListener { startSendViaContact() }
         binding.btnQrAnswer.setOnClickListener { currentLink()?.let { showQrDialog(it) } }
         binding.btnScanAnswerQr.setOnClickListener { startQrScan() }
+
+        // Локальное превью: тап — раскрыть на весь экран (контроль кадра),
+        // тап ещё раз — вернуть в маленькое PiP-окно.
+        binding.localRenderer.setOnClickListener {
+            it.performHapticFeedback(android.view.HapticFeedbackConstants.VIRTUAL_KEY)
+            togglePreview()
+        }
+    }
+
+    /** Раскрыть/свернуть предпросмотр своей камеры. */
+    private var previewExpanded = false
+    private fun togglePreview() {
+        previewExpanded = !previewExpanded
+        val lp = binding.localRenderer.layoutParams as FrameLayout.LayoutParams
+        val dp = resources.displayMetrics.density
+        if (previewExpanded) {
+            lp.width = FrameLayout.LayoutParams.MATCH_PARENT
+            lp.height = FrameLayout.LayoutParams.MATCH_PARENT
+            lp.gravity = Gravity.CENTER
+        } else {
+            lp.width = (110 * dp).toInt()
+            lp.height = (150 * dp).toInt()
+            lp.gravity = Gravity.TOP or Gravity.END
+        }
+        binding.localRenderer.layoutParams = lp
     }
 
     // ------------------------------------------------------------------------
