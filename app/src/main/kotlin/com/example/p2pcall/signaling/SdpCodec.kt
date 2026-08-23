@@ -57,10 +57,21 @@ object SdpCodec {
         )
     }
 
-    /** Полный конвейер распаковки: Base64 → GZIP → SDP. */
+    /** Полный конвейер распаковки: Base64 → GZIP → SDP.
+     *  Пуленепробиваемый: принимает URL-safe и стандартный base64, восстанавливает
+     *  padding — чтобы не зависеть от нюансов флага NO_PADDING на разных Android. */
     @Throws(IllegalArgumentException::class, IOException::class)
     fun decode(encoded: String): String {
-        val bytes = Base64.decode(encoded, Base64.URL_SAFE or Base64.NO_PADDING)
+        var s = encoded.trim()
+        // Нормализуем URL-safe (-, _) к стандартному base64 (+, /).
+        s = s.replace('-', '+').replace('_', '/')
+        // Восстанавливаем padding до длины, кратной 4.
+        when (s.length % 4) {
+            2 -> s += "=="
+            3 -> s += "="
+            1 -> throw IllegalArgumentException("bad base-64 (некорректная длина)")
+        }
+        val bytes = Base64.decode(s, Base64.NO_WRAP)
         return gzipDecompress(bytes)
     }
 
