@@ -1,7 +1,11 @@
 package com.example.p2pcall.webrtc
 
 import android.content.Context
+import android.media.AudioDeviceCallback
+import android.media.AudioDeviceInfo
 import android.media.AudioManager
+import android.os.Handler
+import android.os.Looper
 import com.example.p2pcall.config.AppConfig
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -113,6 +117,7 @@ class WebRtcManager(
     private val iceStateLog = mutableListOf<String>()
 
     private var audioManager: AudioManager? = null
+    private var audioDeviceCallback: AudioDeviceCallback? = null
     private var released = false
 
     /**
@@ -207,6 +212,9 @@ class WebRtcManager(
 
         val vTrack = f.createVideoTrack(VIDEO_TRACK_ID, vSource).apply { setEnabled(true) }
         localVideoTrack = vTrack
+        // Привязываем локальный рендерер, если он уже задан (attachLocalRenderer
+        // мог быть вызван до initialize() — тогда трек ещё не существовал).
+        localRenderer?.let { vTrack.addSink(it) }
     }
 
     /** Выбирает фронтальную камеру (с фолбэком на любую доступную). */
@@ -228,15 +236,38 @@ class WebRtcManager(
     }
 
     private fun configureAudioManager() {
-        audioManager = context.getSystemService(Context.AUDIO_SERVICE) as? AudioManager
-        audioManager?.apply {
-            try {
-                mode = AudioManager.MODE_IN_COMMUNICATION
-                isSpeakerphoneOn = true
-            } catch (_: Throwable) {
-                // На некоторых устройствах вызов бросает исключение — игнорируем.
+        val am = context.getSystemService(Context.AUDIO_SERVICE) as? AudioManager
+        audioManager = am ?: return
+        try {
+            am.mode = AudioManager.MODE_IN_COMMUNICATION
+            applySpeakerRouting()
+            // Пересчитываем маршрут при подключении/отключении наушников во время звонка.
+            audioDeviceCallback = object : AudioDeviceCallback() {
+                override fun onAudioDevicesAdded(addedDevices: Array<out AudioDeviceInfo>?) =
+                    applySpeakerRouting()
+                override fun onAudioDevicesRemoved(removedDevices: Array<out AudioDeviceInfo>?) =
+                    applySpeakerRouting()
             }
+            am.registerAudioDeviceCallback(audioDeviceCallback!!, Handler(Looper.getMainLooper()))
+        } catch (_: Throwable) {
+            // На некоторых устройствах вызов бросает исключение — игнорируем.
         }
+    }
+
+    /** Громкая связь включаем, только если не подключены проводные/USB наушники. */
+    private fun applySpeakerRouting() {
+        val am = audioManager ?: return
+        am.isSpeakerphoneOn = !hasWiredHeadset(am)
+    }
+
+    private fun hasWiredHeadset(am: AudioManager): Boolean = try {
+        am.getDevices(AudioManager.GET_DEVICES_OUTPUTS).any {
+            it.type == AudioDeviceInfo.TYPE_WIRED_HEADSET ||
+                it.type == AudioDeviceInfo.TYPE_WIRED_HEADPHONES ||
+                it.type == AudioDeviceInfo.TYPE_USB_HEADSET
+        }
+    } catch (_: Exception) {
+        false
     }
 
     // --------------------------------------------------------------------------
@@ -447,6 +478,8 @@ class WebRtcManager(
         factory?.dispose()
         audioDeviceModule?.release()
 
+        audioDeviceCallback?.let { cb -> audioManager?.unregisterAudioDeviceCallback(cb) }
+        audioDeviceCallback = null
         audioManager?.apply {
             runCatching {
                 isSpeakerphoneOn = false
