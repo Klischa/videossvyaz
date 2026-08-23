@@ -95,18 +95,29 @@
             android:textSize="15sp" />
     </LinearLayout>
 
-        <TextView
+        <LinearLayout
+        android:id="@+id/historyContainer"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:gravity="center"
+        android:orientation="vertical"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/joinRow" />
+
+    <TextView
         android:id="@+id/hintView"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginTop="32dp"
+        android:layout_marginTop="24dp"
         android:gravity="center"
         android:text="@string/home_hint"
         android:textColor="@color/text_secondary"
         android:textSize="13sp"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/joinRow" />
+        app:layout_constraintTop_toBottomOf="@id/historyContainer" />
 
     <Button
         android:id="@+id/btnSettings"

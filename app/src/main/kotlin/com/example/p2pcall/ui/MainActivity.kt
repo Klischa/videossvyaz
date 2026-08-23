@@ -8,8 +8,11 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import com.example.p2pcall.R
+import com.example.p2pcall.config.AppConfig
 import com.example.p2pcall.databinding.ActivityMainBinding
+import com.example.p2pcall.signaling.FirebaseSignaling
 import com.example.p2pcall.signaling.LinkDelivery
+import com.example.p2pcall.signaling.RoomHistory
 import com.example.p2pcall.signaling.SignalType
 import com.example.p2pcall.signaling.SdpCodec
 import com.example.p2pcall.webrtc.CallMode
@@ -70,6 +73,37 @@ class MainActivity : AppCompatActivity() {
 
         // Если приложение открылось по deep link — обработаем его.
         handleViewIntent(intent)
+
+        populateHistory()
+        // Авто-восстановление комнаты, если процесс был убит во время звонка.
+        RoomHistory.getActiveRoom(this)?.let {
+            RoomHistory.setActiveRoom(this, null)
+            if (FirebaseSignaling.isConfigured(this)) {
+                startActivity(CallActivity.intent(this, CallMode.ROOM, sdp = null))
+            }
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        populateHistory()
+    }
+
+    /** Кнопки недавних комнат для быстрого повторного вызова. */
+    private fun populateHistory() {
+        val container = binding.historyContainer
+        container.removeAllViews()
+        for (code in RoomHistory.list(this)) {
+            val btn = android.widget.Button(this).apply {
+                text = "📞 $code"
+                setOnClickListener {
+                    getSharedPreferences(AppConfig.PREFS, MODE_PRIVATE)
+                        .edit().putString("room_code", code).apply()
+                    startActivity(CallActivity.intent(this@MainActivity, CallMode.ROOM, sdp = null))
+                }
+            }
+            container.addView(btn)
+        }
     }
 
     override fun onNewIntent(intent: Intent?) {

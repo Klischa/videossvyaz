@@ -20,14 +20,25 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
 
-    <!-- Локальное видео (поверх, сверху-справа). -->
-    <org.webrtc.SurfaceViewRenderer
-        android:id="@+id/localRenderer"
+    <!-- Локальное видео: контейнер (видео + маска со скруглением). Перетаскивается. -->
+    <FrameLayout
+        android:id="@+id/previewContainer"
         android:layout_width="110dp"
         android:layout_height="150dp"
         android:layout_gravity="top|end"
         android:layout_margin="16dp"
-        android:elevation="4dp" />
+        android:elevation="4dp">
+
+        <org.webrtc.SurfaceViewRenderer
+            android:id="@+id/localRenderer"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+
+        <com.example.p2pcall.ui.RoundedMaskView
+            android:id="@+id/previewMask"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+    </FrameLayout>
 
     <!-- Статус + индикатор связи + прогресс (сверху). -->
     <LinearLayout

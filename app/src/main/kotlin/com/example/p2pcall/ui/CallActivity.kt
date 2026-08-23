@@ -26,6 +26,7 @@ import com.example.p2pcall.signaling.Messenger
 import com.example.p2pcall.signaling.SignalType
 import com.example.p2pcall.signaling.SdpCodec
 import com.example.p2pcall.signaling.FirebaseSignaling
+import com.example.p2pcall.signaling.RoomHistory
 import com.example.p2pcall.webrtc.CallMode
 import com.example.p2pcall.webrtc.WebRtcController
 import com.example.p2pcall.webrtc.WebRtcListener
@@ -74,6 +75,8 @@ class CallActivity : AppCompatActivity(), WebRtcListener {
     private var downRawY = 0f
     private var startLeft = 0
     private var startTop = 0
+    private var curLeft = 0
+    private var curTop = 0
 
     /** Запрос разрешений камеры и микрофона. */
     private val permissionLauncher = registerForActivityResult(
@@ -314,6 +317,9 @@ class CallActivity : AppCompatActivity(), WebRtcListener {
     private fun startRoomCall() {
         isRoomCall = true
         retryCount = 0
+        val code = FirebaseSignaling.roomCode(this)
+        RoomHistory.add(this, code)
+        RoomHistory.setActiveRoom(this, code)
         runRoomNegotiation()
     }
 
@@ -483,56 +489,73 @@ class CallActivity : AppCompatActivity(), WebRtcListener {
     private var previewExpanded = false
     private fun togglePreview() {
         previewExpanded = !previewExpanded
-        val lp = binding.localRenderer.layoutParams as FrameLayout.LayoutParams
+        val lp = binding.previewContainer.layoutParams as FrameLayout.LayoutParams
         val dp = resources.displayMetrics.density
         if (previewExpanded) {
             lp.width = FrameLayout.LayoutParams.MATCH_PARENT
             lp.height = FrameLayout.LayoutParams.MATCH_PARENT
             lp.gravity = Gravity.CENTER
+            lp.leftMargin = 0
+            lp.topMargin = 0
+            binding.previewMask.cornerRadius = 24f * dp
         } else {
             lp.width = (110 * dp).toInt()
             lp.height = (150 * dp).toInt()
-            lp.gravity = Gravity.TOP or Gravity.END
+            lp.gravity = Gravity.TOP or Gravity.START
+            lp.leftMargin = curLeft
+            lp.topMargin = curTop
+            binding.previewMask.cornerRadius = 16f * dp
         }
-        binding.localRenderer.layoutParams = lp
+        binding.previewContainer.layoutParams = lp
+        binding.previewMask.invalidate()
     }
 
-    /** Скруглённые углы превью + перетаскивание по экрану (тап — раскрыть). */
+    /** Скруглённые углы (маска поверх видео) + перетаскивание (тап — раскрыть). */
     private fun setupLocalPreview() {
         val dp = resources.displayMetrics.density
-        val radius = 16f * dp
-        binding.localRenderer.outlineProvider = object : android.view.ViewOutlineProvider() {
-            override fun getOutline(view: android.view.View, outline: android.graphics.Outline) {
-                outline.setRoundRect(0, 0, view.width, view.height, radius)
-            }
-        }
-        binding.localRenderer.clipToOutline = true
+        binding.previewMask.maskColor = 0xFF101418.toInt() // цвет фона экрана
+        binding.previewMask.cornerRadius = 16f * dp
 
-        binding.localRenderer.setOnTouchListener { v, e ->
+        // Начальное положение — верхний-правый угол (через TOP|START + отступы).
+        binding.previewContainer.post {
+            val parent = binding.previewContainer.parent as android.view.View
+            val lp = binding.previewContainer.layoutParams as FrameLayout.LayoutParams
+            lp.gravity = Gravity.TOP or Gravity.START
+            val pad = (16 * dp).toInt()
+            curLeft = (parent.width - binding.previewContainer.width - pad).coerceAtLeast(pad)
+            curTop = pad
+            lp.leftMargin = curLeft
+            lp.topMargin = curTop
+            binding.previewContainer.layoutParams = lp
+        }
+
+        binding.localRenderer.setOnTouchListener { _, e ->
             when (e.action) {
                 MotionEvent.ACTION_DOWN -> {
                     previewMoved = false
-                    downRawX = e.rawX; downRawY = e.rawY
-                    val lp = v.layoutParams as FrameLayout.LayoutParams
-                    lp.gravity = Gravity.TOP or Gravity.START
-                    startLeft = lp.leftMargin; startTop = lp.topMargin
+                    downRawX = e.rawX
+                    downRawY = e.rawY
+                    startLeft = curLeft
+                    startTop = curTop
                 }
                 MotionEvent.ACTION_MOVE -> {
                     val dx = (e.rawX - downRawX).toInt()
                     val dy = (e.rawY - downRawY).toInt()
                     if (kotlin.math.abs(dx) > 10 || kotlin.math.abs(dy) > 10) previewMoved = true
                     if (previewMoved && !previewExpanded) {
-                        val parent = v.parent as android.view.View
-                        val lp = v.layoutParams as FrameLayout.LayoutParams
-                        val maxX = (parent.width - v.width).coerceAtLeast(0)
-                        val maxY = (parent.height - v.height).coerceAtLeast(0)
-                        lp.leftMargin = (startLeft + dx).coerceIn(0, maxX)
-                        lp.topMargin = (startTop + dy).coerceIn(0, maxY)
-                        v.layoutParams = lp
+                        val parent = binding.previewContainer.parent as android.view.View
+                        val lp = binding.previewContainer.layoutParams as FrameLayout.LayoutParams
+                        val maxX = (parent.width - binding.previewContainer.width).coerceAtLeast(0)
+                        val maxY = (parent.height - binding.previewContainer.height).coerceAtLeast(0)
+                        curLeft = (startLeft + dx).coerceIn(0, maxX)
+                        curTop = (startTop + dy).coerceIn(0, maxY)
+                        lp.leftMargin = curLeft
+                        lp.topMargin = curTop
+                        binding.previewContainer.layoutParams = lp
                     }
                 }
                 MotionEvent.ACTION_UP -> {
-                    v.performHapticFeedback(android.view.HapticFeedbackConstants.VIRTUAL_KEY)
+                    binding.localRenderer.performHapticFeedback(android.view.HapticFeedbackConstants.VIRTUAL_KEY)
                     if (!previewMoved) togglePreview()
                 }
             }
@@ -711,6 +734,7 @@ class CallActivity : AppCompatActivity(), WebRtcListener {
 
     /** Завершение звонка пользователем: освобождаем ресурсы и закрываем экран. */
     private fun endCall() {
+        RoomHistory.setActiveRoom(this, null)
         WebRtcController.reset()
         finish()
     }
@@ -769,6 +793,7 @@ class CallActivity : AppCompatActivity(), WebRtcListener {
                     .setMessage(reason)
                     .setCancelable(false)
                     .setPositiveButton("Закрыть") { _, _ ->
+                        RoomHistory.setActiveRoom(this, null)
                         WebRtcController.reset()
                         finish()
                     }
@@ -821,6 +846,7 @@ class CallActivity : AppCompatActivity(), WebRtcListener {
         }
         // Если экран закрывается окончательно — освобождаем и сам менеджер.
         if (isFinishing) {
+            RoomHistory.setActiveRoom(this, null)
             WebRtcController.reset()
         }
     }

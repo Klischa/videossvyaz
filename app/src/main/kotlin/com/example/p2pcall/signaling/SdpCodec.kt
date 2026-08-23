@@ -57,6 +57,9 @@ object SdpCodec {
         )
     }
 
+    /** Срок жизни ссылки-приглашения (сек). После него ссылка считается недействительной. */
+    const val LINK_TTL_SECONDS = 600L
+
     /** Полный конвейер распаковки: Base64 → GZIP → SDP.
      *  Пуленепробиваемый: принимает URL-safe и стандартный base64, восстанавливает
      *  padding — чтобы не зависеть от нюансов флага NO_PADDING на разных Android. */
@@ -77,11 +80,13 @@ object SdpCodec {
 
     /**
      * Формирует ссылку вида:
-     *   https://yourdomain.com/call?type=offer&sdp=<base64>
+     *   https://yourdomain.com/call?type=offer&exp=<unixSec>&sdp=<base64>
+     * exp — срок жизни ссылки (TTL).
      */
     fun buildLink(type: SignalType, sdp: String): String {
         val typeParam = if (type == SignalType.OFFER) "offer" else "answer"
-        return "${AppConfig.BASE_URL}?type=$typeParam&sdp=${encode(sdp)}"
+        val exp = System.currentTimeMillis() / 1000 + LINK_TTL_SECONDS
+        return "${AppConfig.BASE_URL}?type=$typeParam&exp=$exp&sdp=${encode(sdp)}"
     }
 
     /**
@@ -93,6 +98,13 @@ object SdpCodec {
         val typeStr = uri.getQueryParameter("type") ?: return null
         val sdpParam = uri.getQueryParameter("sdp") ?: return null
         if (sdpParam.isBlank()) return null
+
+        // TTL: если есть exp и срок истёк — ссылка недействительна.
+        val expStr = uri.getQueryParameter("exp")
+        if (expStr != null) {
+            val exp = expStr.toLongOrNull() ?: return null
+            if (System.currentTimeMillis() / 1000 > exp) return null
+        }
 
         val type = when (typeStr.lowercase()) {
             "offer" -> SignalType.OFFER
