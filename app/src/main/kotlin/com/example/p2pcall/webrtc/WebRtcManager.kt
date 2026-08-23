@@ -87,7 +87,6 @@ class WebRtcManager(
     private var videoSource: VideoSource? = null
     private var audioSource: org.webrtc.AudioSource? = null
     private var surfaceHelper: SurfaceTextureHelper? = null
-    private var videoMaxBitrate = 700_000
     private var localVideoTrack: VideoTrack? = null
     private var localAudioTrack: AudioTrack? = null
 
@@ -187,9 +186,6 @@ class WebRtcManager(
         peerConnection!!.addTrack(localAudioTrack!!, listOf(STREAM_ID))
         peerConnection!!.addTrack(localVideoTrack!!, listOf(STREAM_ID))
 
-        // Ограничиваем битрейт видео — для стабильности на плохом интернете.
-        applyVideoConstraints()
-
         // 6. Аудио-маршрутизация (громкая связь для видеозвонка).
         configureAudioManager()
     }
@@ -198,13 +194,12 @@ class WebRtcManager(
     private fun createLocalTracks() {
         val f = factory!!
 
-        // Адаптация под качество связи: режим «экономии трафика» — ниже разрешение/FPS/битрейт.
+        // Адаптация под качество связи: режим «экономии трафика» — ниже разрешение/FPS.
         val economy = context.getSharedPreferences(AppConfig.PREFS, Context.MODE_PRIVATE)
             .getBoolean("video_economy", false)
         val width = if (economy) 320 else 640
         val height = if (economy) 240 else 480
         val fps = if (economy) 15 else 24
-        videoMaxBitrate = if (economy) 250_000 else 700_000
 
         // Аудио.
         val audioSrc = f.createAudioSource(MediaConstraints())
@@ -229,25 +224,6 @@ class WebRtcManager(
         // Привязываем локальный рендерер, если он уже задан (attachLocalRenderer
         // мог быть вызван до initialize() — тогда трек ещё не существовал).
         localRenderer?.let { vTrack.addSink(it) }
-    }
-
-    /**
-     * Ограничивает битрейт видео-энкодера ([videoMaxBitrate]) — это верхняя граница,
-     * ниже которой WebRTC сам снижает качество при потерях (адаптация по BW).
-     * Меньше битрейт → стабильнее картинка на плохом интернете.
-     */
-    private fun applyVideoConstraints() {
-        val pc = peerConnection ?: return
-        val sender = pc.senders.firstOrNull { it.track() is VideoTrack } ?: return
-        try {
-            val params = sender.parameters
-            if (params.encodings.isNotEmpty()) {
-                params.encodings[0].maxBitrate = videoMaxBitrate
-                sender.parameters = params
-            }
-        } catch (_: Exception) {
-            // на некоторых устройствах параметры менять нельзя — игнорируем
-        }
     }
 
     /** Выбирает фронтальную камеру (с фолбэком на любую доступную). */
