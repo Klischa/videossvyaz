@@ -4,11 +4,17 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Build
 import android.provider.ContactsContract
 import android.widget.Toast
 import com.google.zxing.BarcodeFormat
+import com.google.zxing.BinaryBitmap
+import com.google.zxing.DecodeHintType
+import com.google.zxing.HybridBinarizer
+import com.google.zxing.MultiFormatReader
+import com.google.zxing.RGBLuminanceSource
 import com.journeyapps.barcodescanner.BarcodeEncoder
 import java.net.URLEncoder
 
@@ -97,6 +103,55 @@ object LinkDelivery {
     /** Генерация QR-кода в Bitmap (null при ошибке). */
     fun generateQr(text: String, size: Int): Bitmap? = try {
         BarcodeEncoder().encodeBitmap(text, BarcodeFormat.QR_CODE, size, size)
+    } catch (e: Exception) {
+        null
+    }
+
+    /**
+     * Загружает Bitmap из [uri] с понижающей дискретизацией до [maxDim] по большей
+     * стороне — чтобы избежать OOM на больших фотографиях и ускорить декодирование.
+     */
+    fun loadBitmap(context: Context, uri: Uri, maxDim: Int = 2000): Bitmap? = try {
+        val resolver = context.contentResolver
+        // 1-й проход: только размеры.
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        resolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) }
+        var sample = 1
+        val max = maxOf(bounds.outWidth, bounds.outHeight)
+        while (max / sample > maxDim) sample *= 2
+        // 2-й проход: с inSampleSize.
+        val opts = BitmapFactory.Options().apply { inSampleSize = sample }
+        resolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, opts) }
+    } catch (e: Exception) {
+        null
+    }
+
+    /**
+     * Декодирует QR-код из растрового изображения.
+     * Возвращает текст ссылки или null, если QR не найден.
+     */
+    fun decodeQrFromBitmap(bitmap: Bitmap): String? = try {
+        val width = bitmap.width
+        val height = bitmap.height
+        val pixels = IntArray(width * height)
+        bitmap.getPixels(pixels, 0, width, 0, 0, width, height)
+
+        val source = RGBLuminanceSource(width, height, pixels)
+        val binary = BinaryBitmap(HybridBinarizer(source))
+
+        val reader = MultiFormatReader().apply {
+            setHints(
+                mapOf(
+                    DecodeHintType.POSSIBLE_FORMATS to listOf(BarcodeFormat.QR_CODE),
+                    DecodeHintType.TRY_HARDER to true
+                )
+            )
+        }
+        try {
+            reader.decodeWithState(binary).text
+        } finally {
+            reader.reset()
+        }
     } catch (e: Exception) {
         null
     }

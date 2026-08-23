@@ -82,7 +82,7 @@ class CallActivity : AppCompatActivity(), WebRtcListener {
         ActivityResultContracts.PickContact()
     ) { uri -> uri?.let { onContactPicked(it) } }
 
-    /** Сканирование QR-кода (результат — текст ссылки). */
+    /** Сканирование QR-кода камерой (результат — текст ссылки). */
     private val qrScanLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
@@ -92,6 +92,11 @@ class CallActivity : AppCompatActivity(), WebRtcListener {
         val text = res?.contents
         if (!text.isNullOrEmpty()) handleScannedLink(text)
     }
+
+    /** Выбор изображения из галереи для распознавания QR. */
+    private val pickImageLauncher = registerForActivityResult(
+        ActivityResultContracts.GetContent()
+    ) { uri -> uri?.let { onImagePicked(it) } }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -429,8 +434,23 @@ class CallActivity : AppCompatActivity(), WebRtcListener {
             .show()
     }
 
-    /** Запуск сканера QR (ZXing). */
+    /** Запуск сканера QR: выбор способа — камерой или из изображения. */
     private fun startQrScan() {
+        AlertDialog.Builder(this)
+            .setTitle(R.string.scan_method_title)
+            .setItems(
+                arrayOf(
+                    getString(R.string.scan_method_camera),
+                    getString(R.string.scan_method_image)
+                )
+            ) { _, which ->
+                if (which == 0) startCameraScan() else pickImageLauncher.launch("image/*")
+            }
+            .show()
+    }
+
+    /** Сканер QR камерой (ZXing). */
+    private fun startCameraScan() {
         val integrator = IntentIntegrator(this).apply {
             setPrompt(getString(R.string.scan_prompt))
             setBeepEnabled(false)
@@ -441,6 +461,17 @@ class CallActivity : AppCompatActivity(), WebRtcListener {
             qrScanLauncher.launch(integrator.createScanIntent())
         } catch (_: Exception) {
             Toast.makeText(this, R.string.msg_cannot_open, Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    /** Распознавание QR из выбранного изображения. */
+    private fun onImagePicked(uri: Uri) {
+        val bitmap = LinkDelivery.loadBitmap(this, uri)
+        val text = if (bitmap != null) LinkDelivery.decodeQrFromBitmap(bitmap) else null
+        if (text.isNullOrEmpty()) {
+            Toast.makeText(this, R.string.qr_not_found, Toast.LENGTH_LONG).show()
+        } else {
+            handleScannedLink(text)
         }
     }
 

@@ -9,6 +9,7 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import com.example.p2pcall.R
 import com.example.p2pcall.databinding.ActivityMainBinding
+import com.example.p2pcall.signaling.LinkDelivery
 import com.example.p2pcall.signaling.SignalType
 import com.example.p2pcall.signaling.SdpCodec
 import com.example.p2pcall.webrtc.CallMode
@@ -38,6 +39,11 @@ class MainActivity : AppCompatActivity() {
             Toast.makeText(this, R.string.msg_invalid_link, Toast.LENGTH_LONG).show()
         }
     }
+
+    /** Выбор изображения из галереи для распознавания QR-приглашения. */
+    private val pickImageLauncher = registerForActivityResult(
+        ActivityResultContracts.GetContent()
+    ) { uri -> uri?.let { onImagePicked(it) } }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -83,8 +89,22 @@ class MainActivity : AppCompatActivity() {
             .show()
     }
 
-    /** Запуск сканера QR (ZXing) для приёма приглашения. */
+    /** Запуск сканера QR: выбор способа — камерой или из изображения. */
     private fun startQrScan() {
+        AlertDialog.Builder(this)
+            .setTitle(R.string.scan_method_title)
+            .setItems(
+                arrayOf(
+                    getString(R.string.scan_method_camera),
+                    getString(R.string.scan_method_image)
+                )
+            ) { _, which ->
+                if (which == 0) startCameraScan() else pickImageLauncher.launch("image/*")
+            }
+            .show()
+    }
+
+    private fun startCameraScan() {
         val integrator = IntentIntegrator(this).apply {
             setPrompt(getString(R.string.scan_prompt))
             setBeepEnabled(false)
@@ -95,6 +115,17 @@ class MainActivity : AppCompatActivity() {
             qrScanLauncher.launch(integrator.createScanIntent())
         } catch (_: Exception) {
             Toast.makeText(this, R.string.msg_cannot_open, Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    /** Распознавание QR из выбранного изображения и обработка ссылки. */
+    private fun onImagePicked(uri: Uri) {
+        val bitmap = LinkDelivery.loadBitmap(this, uri)
+        val text = if (bitmap != null) LinkDelivery.decodeQrFromBitmap(bitmap) else null
+        if (text.isNullOrEmpty()) {
+            Toast.makeText(this, R.string.qr_not_found, Toast.LENGTH_LONG).show()
+        } else if (!routeLink(text)) {
+            Toast.makeText(this, R.string.msg_invalid_link, Toast.LENGTH_LONG).show()
         }
     }
 
