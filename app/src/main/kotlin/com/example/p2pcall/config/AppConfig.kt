@@ -20,8 +20,8 @@ object AppConfig {
     /** Альтернативная кастомная схема (для тестирования без домена). */
     const val CUSTOM_SCHEME_URL = "myapp://call"
 
-    /** Таймаут ожидания завершения ICE gathering (мс). */
-    const val ICE_GATHERING_TIMEOUT_MS = 15_000L
+    /** Таймаут ожидания завершения ICE gathering (мс). 30с — для медленных устройств. */
+    const val ICE_GATHERING_TIMEOUT_MS = 30_000L
 
     /** Минимальная версия разрешения для захвата видео (API 23+). */
     const val CAMERA_PERMISSION_REQUEST = 1001

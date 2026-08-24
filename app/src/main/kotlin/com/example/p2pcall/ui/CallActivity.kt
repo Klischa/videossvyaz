@@ -792,6 +792,14 @@ class CallActivity : AppCompatActivity(), WebRtcListener {
     override fun onResume() {
         super.onResume()
         maybeAutoApplyAnswerFromClipboard()
+        // Перепривязываем рендереры — на Android 14/15 поверхность SurfaceView
+        // может пересоздаваться при сворачивании/возврате, и видео "чернеет".
+        if (renderersInitialized) {
+            val mgr = WebRtcController.manager
+            mgr?.detachRenderers()
+            mgr?.attachLocalRenderer(binding.localRenderer)
+            mgr?.attachRemoteRenderer(binding.remoteRenderer)
+        }
     }
 
     /**
