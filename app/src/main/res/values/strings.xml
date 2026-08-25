@@ -40,6 +40,11 @@
     <string name="btn_video">Видео</string>
     <string name="btn_switch">Камера</string>
     <string name="btn_quality">Качество видео</string>
+    <string name="btn_file">Отправить файл</string>
+    <string name="msg_dc_not_open">Канал данных не открыт (соединение не установлено)</string>
+    <string name="file_received_title">Получен файл</string>
+    <string name="file_open">Открыть</string>
+    <string name="file_share">Поделиться</string>
     <string name="btn_hangup">Завершить</string>
 
     <string name="chooser_share">Отправить ссылку через…</string>

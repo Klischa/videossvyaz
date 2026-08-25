@@ -32,7 +32,9 @@ import org.webrtc.SurfaceViewRenderer
 import org.webrtc.VideoCapturer
 import org.webrtc.VideoSource
 import org.webrtc.VideoTrack
+import java.io.ByteArrayOutputStream
 import java.io.IOException
+import java.nio.ByteBuffer
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
@@ -48,6 +50,12 @@ interface WebRtcListener {
 
     /** Неустранимый сбой соединения/инициализации. */
     fun onFailed(reason: String)
+
+    /** Получен файл через DataChannel. */
+    fun onFileReceived(fileName: String, filePath: String)
+
+    /** Прогресс отправки файла. */
+    fun onFileSendProgress(sent: Long, total: Long)
 }
 
 /**
@@ -98,6 +106,13 @@ class WebRtcManager(
     // ----- Рендереры (владеются Activity) ---------------------------------------
     private var localRenderer: SurfaceViewRenderer? = null
     private var remoteRenderer: SurfaceViewRenderer? = null
+
+    // ----- DataChannel (передача файлов) -----------------------------------------
+    private var dataChannel: DataChannel? = null
+    private var recvFileName: String = "file"
+    private var recvFileSize: Long = 0
+    private var recvBytes: ByteArrayOutputStream? = null
+    private var recvStarted = false
 
     // ----- ICE gathering (без trickle) ------------------------------------------
     private var iceGatheringDeferred: CompletableDeferred<Unit>? = null
@@ -317,6 +332,13 @@ class WebRtcManager(
         ensureReady()
         val constraints = receiveConstraints()
 
+        // Создаём DataChannel ДО генерации offer (чтобы он попал в SDP).
+        if (dataChannel == null) {
+            val init = DataChannel.Init().apply { ordered = true }
+            dataChannel = peerConnection?.createDataChannel("files", init)
+            dataChannel?.registerObserver(dataChannelObserver)
+        }
+
         // Готовим ожидание завершения ICE gathering ДО установки local description.
         iceGatheringDeferred = CompletableDeferred()
         gatheredCandidates.clear()
@@ -485,6 +507,92 @@ class WebRtcManager(
     /** Текущий режим видео (для UI-кнопки). */
     fun isEconomyMode(): Boolean = currentEconomy
 
+    // ------------------------------------------------------------------------
+    //  Передача файлов через DataChannel
+    // ------------------------------------------------------------------------
+
+    private val dataChannelObserver = object : DataChannel.Observer {
+        override fun onBufferedAmountChange(amount: Long) {}
+        override fun onStateChange() {}
+
+        override fun onMessage(buffer: DataChannel.Buffer?) {
+            buffer ?: return
+            val data = ByteArray(buffer.data.remaining())
+            buffer.data.get(data)
+
+            if (buffer.binary) {
+                recvBytes?.let { bos ->
+                    bos.write(data)
+                    if (bos.size() >= recvFileSize && recvFileSize > 0) {
+                        finishReceiving()
+                    }
+                }
+            } else {
+                val text = String(data, Charsets.UTF_8)
+                try {
+                    val json = org.json.JSONObject(text)
+                    recvFileName = json.optString("name", "file")
+                    recvFileSize = json.optLong("size", 0)
+                    recvBytes = ByteArrayOutputStream()
+                } catch (_: Exception) {}
+            }
+        }
+    }
+
+    private fun finishReceiving() {
+        val bos = recvBytes ?: return
+        val bytes = bos.toByteArray()
+        recvBytes = null
+        val dir = java.io.File(context.filesDir, "received").apply { mkdirs() }
+        val file = java.io.File(dir, recvFileName)
+        file.writeBytes(bytes)
+        listener.onFileReceived(recvFileName, file.absolutePath)
+    }
+
+    fun sendFile(uri: android.net.Uri) {
+        val dc = dataChannel ?: throw IOException("DataChannel не открыт")
+        if (dc.state() != DataChannel.State.OPEN) throw IOException("DataChannel не готов")
+
+        var fileName = "file"
+        var fileSize = 0L
+        try {
+            context.contentResolver.query(uri, null, null, null, null)?.use { c ->
+                if (c.moveToFirst()) {
+                    val n = c.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+                    val s = c.getColumnIndex(android.provider.OpenableColumns.SIZE)
+                    if (n >= 0) fileName = c.getString(n) ?: "file"
+                    if (s >= 0) fileSize = c.getLong(s)
+                }
+            }
+        } catch (_: Exception) {}
+
+        val meta = """{"name":"$fileName","size":$fileSize}"""
+        dc.send(DataChannel.Buffer(ByteBuffer.wrap(meta.toByteArray(Charsets.UTF_8)), false))
+
+        val stream = context.contentResolver.openInputStream(uri)
+            ?: throw IOException("Не удалось открыть файл")
+        val chunk = ByteArray(16 * 1024)
+        var sent = 0L
+        stream.use { s ->
+            while (true) {
+                val read = s.read(chunk)
+                if (read <= 0) break
+                var wait = 0
+                while (dc.bufferedAmount() > 512 * 1024 && wait < 30_000) {
+                    Thread.sleep(50)
+                    wait += 50
+                }
+                val buf = if (read == chunk.size) chunk else chunk.copyOf(read)
+                dc.send(DataChannel.Buffer(ByteBuffer.wrap(buf), false))
+                sent += read
+                listener.onFileSendProgress(sent, if (fileSize > 0) fileSize else sent)
+            }
+        }
+    }
+
+    fun isDataChannelOpen(): Boolean =
+        dataChannel?.state() == DataChannel.State.OPEN
+
     // --------------------------------------------------------------------------
     //  Освобождение ресурсов
     // --------------------------------------------------------------------------
@@ -613,7 +721,13 @@ class WebRtcManager(
         override fun onIceCandidateError(p0: IceCandidateErrorEvent?) = Unit
         override fun onAddStream(stream: MediaStream?) = Unit
         override fun onRemoveStream(stream: MediaStream?) = Unit
-        override fun onDataChannel(p0: org.webrtc.DataChannel?) = Unit
+        override fun onDataChannel(channel: DataChannel?) {
+            // Принимающий получает DataChannel, созданный инициатором.
+            channel?.let {
+                dataChannel = it
+                it.registerObserver(dataChannelObserver)
+            }
+        }
         override fun onRenegotiationNeeded() = Unit
 
         override fun onAddTrack(receiver: RtpReceiver?, mediaStreams: Array<out MediaStream>?) {

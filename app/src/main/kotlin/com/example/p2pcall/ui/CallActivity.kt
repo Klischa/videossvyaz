@@ -121,6 +121,11 @@ class CallActivity : AppCompatActivity(), WebRtcListener {
         ActivityResultContracts.GetContent()
     ) { uri -> uri?.let { onImagePicked(it) } }
 
+    /** Выбор файла для отправки через DataChannel. */
+    private val pickFileLauncher = registerForActivityResult(
+        ActivityResultContracts.GetContent()
+    ) { uri -> uri?.let { sendFileViaDataChannel(it) } }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityCallBinding.inflate(layoutInflater)
@@ -462,6 +467,10 @@ class CallActivity : AppCompatActivity(), WebRtcListener {
 
         binding.btnHangup.setOnClickListener { endCall() }
 
+        binding.btnFile.setOnClickListener {
+            pickFileLauncher.launch("*/*")
+        }
+
         // Доставка ссылки: выбор контакта + мессенджер, QR-код, сканирование QR.
         binding.btnContactOffer.setOnClickListener { startSendViaContact() }
         binding.btnQrOffer.setOnClickListener { currentLink()?.let { showQrDialog(it) } }
@@ -566,6 +575,24 @@ class CallActivity : AppCompatActivity(), WebRtcListener {
     /** Цвет индикатора качества связи: зелёный/жёлтый/красный. */
     private fun setQuality(color: Int) {
         binding.qualityDot.setTextColor(color)
+    }
+
+    private fun sendFileViaDataChannel(uri: Uri) {
+        val mgr = WebRtcController.manager ?: return
+        if (!mgr.isDataChannelOpen()) {
+            Toast.makeText(this, R.string.msg_dc_not_open, Toast.LENGTH_LONG).show()
+            return
+        }
+        lifecycleScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            try {
+                mgr.sendFile(uri)
+            } catch (e: Exception) {
+                withContext(kotlinx.coroutines.Dispatchers.Main) {
+                    Toast.makeText(this@CallActivity,
+                        "Ошибка: ${e.message}", Toast.LENGTH_LONG).show()
+                }
+            }
+        }
     }
 
     // ------------------------------------------------------------------------
@@ -751,6 +778,55 @@ class CallActivity : AppCompatActivity(), WebRtcListener {
             // Кратковременный обрыв: не убиваем звонок, даём WebRTC восстановиться.
             setQuality(0xFFFFB300.toInt()) // жёлтый — потеря, восстановление
             binding.statusText.text = "Соединение потеряно, восстановление…"
+        }
+    }
+
+    override fun onFileSendProgress(sent: Long, total: Long) {
+        runOnUiThread {
+            val pct = if (total > 0) (sent * 100 / total).toInt() else 0
+            binding.statusText.text = "Отправка файла… $pct%"
+        }
+    }
+
+    override fun onFileReceived(fileName: String, filePath: String) {
+        runOnUiThread {
+            binding.statusText.text = getString(R.string.status_connected)
+            AlertDialog.Builder(this)
+                .setTitle(R.string.file_received_title)
+                .setMessage(fileName)
+                .setPositiveButton(R.string.file_open) { _, _ ->
+                    try {
+                        val file = java.io.File(filePath)
+                        val uri = androidx.core.content.FileProvider.getUriForFile(
+                            this, "${packageName}.fileprovider", file
+                        )
+                        val intent = Intent(Intent.ACTION_VIEW).apply {
+                            setDataAndType(uri, contentResolver.getType(uri) ?: "*/*")
+                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                        }
+                        startActivity(intent)
+                    } catch (_: Exception) {
+                        Toast.makeText(this, R.string.msg_cannot_open, Toast.LENGTH_SHORT).show()
+                    }
+                }
+                .setNegativeButton(R.string.file_share) { _, _ ->
+                    try {
+                        val file = java.io.File(filePath)
+                        val uri = androidx.core.content.FileProvider.getUriForFile(
+                            this, "${packageName}.fileprovider", file
+                        )
+                        val intent = Intent(Intent.ACTION_SEND).apply {
+                            type = contentResolver.getType(uri) ?: "*/*"
+                            putExtra(Intent.EXTRA_STREAM, uri)
+                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                        }
+                        startActivity(Intent.createChooser(intent, fileName))
+                    } catch (_: Exception) {
+                        Toast.makeText(this, R.string.msg_cannot_open, Toast.LENGTH_SHORT).show()
+                    }
+                }
+                .setNeutralButton(android.R.string.cancel, null)
+                .show()
         }
     }
 
