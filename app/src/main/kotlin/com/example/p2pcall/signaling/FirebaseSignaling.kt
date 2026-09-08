@@ -1,6 +1,7 @@
 package com.example.p2pcall.signaling
 
 import android.content.Context
+import android.net.Uri
 import com.example.p2pcall.config.AppConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -10,22 +11,31 @@ import java.net.HttpURLConnection
 import java.net.URL
 
 /**
- * Сигналинг через Firebase Realtime Database (REST API).
+ * Сигналинг «комнат» через REST API.
  *
- * Работает БЕЗ google-services.json и Firebase SDK — обычные HTTPS-запросы.
+ * Два варианта сервера (выбирается тем, что вписано в настройках):
+ *  1. Firebase Realtime Database — https://ваш-проект...firebasedatabase.app
+ *     (работает БЕЗ google-services.json и Firebase SDK — обычные HTTPS-запросы);
+ *  2. Свой сервер на Windows 7 — http://IP-компьютера:8080
+ *     (server/signaling_server.py, см. WIN7_SERVER.md — тот же REST-протокол).
+ *
  * «Комната» = узел /rooms/{roomCode}. В нём хранятся offer и answer
  * (в нашем gzip+Base64-кодированном виде, см. [SdpCodec] — строка без спецсимволов,
  * поэтому JSON-кодирование сводится к обёртке в кавычки).
  *
  * Этот код комнаты и есть «постоянный ключ» для связи с одним человеком:
- * оба вводят его один раз, дальше звонок negotiated автоматически.
+ * оба вводят его один раз, дальше звонок согласуется автоматически.
  */
 object FirebaseSignaling {
 
     private fun prefs(ctx: Context) =
         ctx.getSharedPreferences(AppConfig.PREFS, Context.MODE_PRIVATE)
 
-    /** URL БД, например https://myproj-default-rtdb.firebaseio.com */
+    /**
+     * URL сигнального сервера, например:
+     *  - https://myproj-default-rtdb.firebaseio.com (Firebase)
+     *  - http://192.168.1.5:8080 (свой сервер на Windows 7)
+     */
     fun dbUrl(ctx: Context): String = prefs(ctx).getString("firebase_url", "") ?: ""
 
     /** Код комнаты — общий «постоянный ключ» двух абонентов. */
@@ -36,9 +46,11 @@ object FirebaseSignaling {
         dbUrl(ctx).isNotBlank() && roomCode(ctx).isNotBlank()
 
     private fun baseUrl(ctx: Context): String? {
-        val db = dbUrl(ctx).trimEnd('/')
+        val db = dbUrl(ctx).trim().trimEnd('/')
         val room = roomCode(ctx).trim()
-        return if (db.isBlank() || room.isBlank()) null else "$db/rooms/$room"
+        // Кодируем код комнаты для пути URL (пробелы/кириллица).
+        // Оба сервера (Firebase и свой) понимают percent-encoding.
+        return if (db.isBlank() || room.isBlank()) null else "$db/rooms/${Uri.encode(room)}"
     }
 
     private suspend fun http(method: String, url: String, body: String? = null): String? =
@@ -68,7 +80,7 @@ object FirebaseSignaling {
             }
         }
 
-    /** Достаёт строку из JSON-ответа Firebase (строка приходит как "value", отсутствие — "null"). */
+    /** Достаёт строку из JSON-ответа сервера (строка приходит как "value", отсутствие — "null"). */
     private fun decodeValue(resp: String?): String? {
         if (resp.isNullOrBlank()) return null
         val t = resp.trim()

@@ -26,3 +26,12 @@ keystore.properties
 # macOS / Windows
 .DS_Store
 Thumbs.db
+
+# Локальные данные сигнального сервера (server/): комнаты, логи, сборка exe
+server/rooms.json
+server/rooms.json.tmp
+server/server.log
+server/dist/
+server/build/
+server/*.spec
+__pycache__/
