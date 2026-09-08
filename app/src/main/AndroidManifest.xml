@@ -30,6 +30,7 @@
         android:label="@string/app_name"
         android:supportsRtl="true"
         android:theme="@style/Theme.P2PCall"
+        android:usesCleartextTraffic="true"
         tools:targetApi="31">
 
         <!-- Главный экран: точка входа + обработчик deep link. -->

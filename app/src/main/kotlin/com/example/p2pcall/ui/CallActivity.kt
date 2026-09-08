@@ -383,7 +383,7 @@ class CallActivity : AppCompatActivity(), WebRtcListener {
                     val answer = manager.createAnswer(offerSdp)
                     WebRtcController.markAnswerer()
                     if (!FirebaseSignaling.writeAnswer(this@CallActivity, SdpCodec.encode(answer))) {
-                        throw IOException("Не удалось записать answer в Firebase")
+                        throw IOException("Не удалось записать answer на сигнальный сервер")
                     }
                     hideSignalingPanels()
                     setStatus(R.string.status_connecting)
