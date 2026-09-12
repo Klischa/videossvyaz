@@ -1,0 +1,14 @@
+name = "p2pcall-signal"
+main = "src/worker.js"
+account_id = "6c7b9a18e625db7feacaf84f010db4f3"
+compatibility_date = "2024-12-01"
+
+# Durable Object для комнат звонка (WebSocket-релей).
+[[durable_objects.bindings]]
+name = "CALLS"
+class_name = "CallRelay"
+
+# Миграция: создание класса.
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["CallRelay"]

@@ -19,6 +19,9 @@
     <!-- Контакты (для отправки ссылки выбранному контакту) -->
     <uses-permission android:name="android.permission.READ_CONTACTS" />
 
+    <!-- Вибрация при входящем дозвоне через Cloudflare Worker -->
+    <uses-permission android:name="android.permission.VIBRATE" />
+
     <!-- Аппаратные требования (необязательны, но рекомендуются) -->
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     <uses-feature android:name="android.hardware.microphone" android:required="false" />

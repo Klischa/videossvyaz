@@ -26,6 +26,9 @@ import com.example.p2pcall.signaling.Messenger
 import com.example.p2pcall.signaling.SignalType
 import com.example.p2pcall.signaling.SdpCodec
 import com.example.p2pcall.signaling.FirebaseSignaling
+import com.example.p2pcall.signaling.CCloudRole
+import com.example.p2pcall.signaling.WsSignaling
+import com.example.p2pcall.signaling.WsSignalingListener
 import com.example.p2pcall.signaling.RoomHistory
 import com.example.p2pcall.webrtc.CallMode
 import com.example.p2pcall.webrtc.WebRtcController
@@ -69,6 +72,13 @@ class CallActivity : AppCompatActivity(), WebRtcListener {
     private var retryCount = 0
     private val maxRetries = 3
     private val retryDelayMs = 3000L
+
+    // Дозвон через Cloudflare Worker.
+    private var cloudWs: WsSignaling? = null
+    private var cloudRole: CCloudRole? = null
+    private var cloudPendingOffer: String? = null
+    private var cloudCallAccepted = false
+    private var cloudMediaStarted = false
 
     // Перетаскивание превью.
     private var previewMoved = false
@@ -210,6 +220,7 @@ class CallActivity : AppCompatActivity(), WebRtcListener {
                 }
             }
             CallMode.ROOM -> startRoomCall()
+            CallMode.CLOUD -> startCloudCall()
         }
     }
 
@@ -396,6 +407,221 @@ class CallActivity : AppCompatActivity(), WebRtcListener {
     }
 
     // ------------------------------------------------------------------------
+    //  Дозвон через Cloudflare Worker (WebSocket, без Telegram/сервера)
+    // ------------------------------------------------------------------------
+
+    /**
+     * Дозвон «приложение → приложение» напрямую через Cloudflare Worker.
+     * Оба телефона открывают WebSocket в один код комнаты; первый получает роль
+     * caller (жмёт «Позвонить»), второй — callee (диалог «Ответить/Отклонить»).
+     * SDP ходит через воркер, медиа — P2P по WebRTC.
+     */
+    private fun startCloudCall() {
+        val wsUrl = AppConfig.cloudUrl(this)
+        val code = FirebaseSignaling.roomCode(this)
+        if (wsUrl.isBlank() || code.isNullOrBlank()) {
+            Toast.makeText(this, R.string.msg_cloud_not_configured, Toast.LENGTH_LONG).show()
+            finish()
+            return
+        }
+        RoomHistory.add(this, code)
+        RoomHistory.setActiveRoom(this, code)
+
+        // Свежий менеджер, как в режиме комнаты.
+        WebRtcController.reset()
+        val manager = WebRtcController.getOrCreate(this).also { it.setListener(this) }
+        manager.detachRenderers()
+        manager.attachLocalRenderer(binding.localRenderer)
+        manager.attachRemoteRenderer(binding.remoteRenderer)
+
+        cloudRole = null
+        cloudPendingOffer = null
+        cloudCallAccepted = false
+        cloudMediaStarted = false
+        binding.btnCloudRing.visibility = android.view.View.GONE
+
+        setStatus(R.string.status_cloud_connecting)
+        showProgress(true)
+
+        cloudWs = WsSignaling(this, cloudSignalingListener).also {
+            it.connect(code)
+        }
+    }
+
+    /** Caller жмёт «Позвонить» → дозвон + offer. */
+    private fun ringCloudPeer() {
+        val manager = WebRtcController.manager ?: return
+        val ws = cloudWs ?: return
+        binding.btnCloudRing.visibility = android.view.View.GONE
+
+        lifecycleScope.launch {
+            try {
+                setStatus(R.string.status_cloud_ringing)
+                showProgress(true)
+                manager.initialize()
+                val offer = manager.createOffer()
+                WebRtcController.markOfferer(offer)
+                cloudMediaStarted = true
+                val caller = android.os.Build.MODEL.ifBlank { "Абонент" }
+                ws.sendRing(caller)
+                ws.sendOffer(offer)
+                setStatus(R.string.status_waiting_answer)
+            } catch (e: Exception) {
+                fail(e.message ?: "cloud ring")
+            }
+        }
+    }
+
+    /** Callee принял звонок → ответить на полученный offer. */
+    private fun answerCloudCall() {
+        val manager = WebRtcController.manager ?: return
+        val ws = cloudWs ?: return
+        val offer = cloudPendingOffer ?: return
+
+        lifecycleScope.launch {
+            try {
+                setStatus(R.string.status_generating_answer)
+                showProgress(true)
+                manager.initialize()
+                val answer = manager.createAnswer(offer)
+                WebRtcController.markAnswerer()
+                cloudMediaStarted = true
+                ws.sendAnswer(answer)
+                hideSignalingPanels()
+                setStatus(R.string.status_connecting)
+            } catch (e: Exception) {
+                fail(e.message ?: "cloud answer")
+            }
+        }
+    }
+
+    /** Вибрация при входящем дозвоне. */
+    private fun vibrateRing() {
+        val duration = 600L
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+            val vm = getSystemService(android.content.Context.VIBRATOR_MANAGER_SERVICE)
+                as? android.os.VibratorManager
+            vm?.defaultVibrator?.vibrate(
+                android.os.VibrationEffect.createOneShot(duration, android.os.VibrationEffect.DEFAULT_AMPLITUDE)
+            )
+        } else {
+            @Suppress("DEPRECATION")
+            (getSystemService(android.content.Context.VIBRATOR_SERVICE) as? android.os.Vibrator)
+                ?.vibrate(android.os.VibrationEffect.createOneShot(duration, android.os.VibrationEffect.DEFAULT_AMPLITUDE))
+        }
+    }
+
+    private fun showCloudIncomingDialog(from: String) {
+        vibrateRing()
+        AlertDialog.Builder(this)
+            .setTitle(R.string.cloud_incoming_title)
+            .setMessage(getString(R.string.cloud_incoming_msg, from))
+            .setCancelable(false)
+            .setPositiveButton(R.string.cloud_accept) { _, _ ->
+                cloudCallAccepted = true
+                answerCloudCall()
+            }
+            .setNegativeButton(R.string.cloud_decline) { _, _ ->
+                cloudWs?.sendBye()
+                Toast.makeText(this, R.string.msg_cloud_declined, Toast.LENGTH_SHORT).show()
+                finish()
+            }
+            .show()
+    }
+
+    private val cloudSignalingListener = object : WsSignalingListener {
+        override fun onRole(role: CCloudRole) {
+            runOnUiThread {
+                cloudRole = role
+                showProgress(false)
+                when (role) {
+                    CCloudRole.CALLER -> {
+                        // Ждём второго участника, потом покажем «Позвонить».
+                        setStatus(R.string.status_cloud_wait_peer)
+                    }
+                    CCloudRole.CALLEE -> setStatus(R.string.status_cloud_wait_call)
+                }
+            }
+        }
+
+        override fun onPeerJoined() {
+            runOnUiThread {
+                if (cloudRole == CCloudRole.CALLER) {
+                    setStatus(R.string.status_cloud_peer_ready)
+                    binding.btnCloudRing.visibility = android.view.View.VISIBLE
+                }
+            }
+        }
+
+        override fun onPeerLeft() {
+            runOnUiThread {
+                // До установки медиа нет смысла ждать дальше.
+                if (!cloudMediaStarted) {
+                    setStatus(R.string.msg_cloud_peer_left)
+                    Toast.makeText(this@CallActivity, R.string.msg_cloud_peer_left, Toast.LENGTH_LONG).show()
+                    finish()
+                }
+            }
+        }
+
+        override fun onRing(from: String) {
+            runOnUiThread {
+                if (cloudRole == CCloudRole.CALLEE) showCloudIncomingDialog(from)
+            }
+        }
+
+        override fun onOffer(sdp: String) {
+            cloudPendingOffer = sdp
+            runOnUiThread {
+                // Offer может прийти чуть раньше/позже нажатия «Ответить».
+                if (cloudCallAccepted) answerCloudCall()
+            }
+        }
+
+        override fun onAnswer(sdp: String) {
+            runOnUiThread {
+                val manager = WebRtcController.manager
+                val offer = WebRtcController.localOfferSdp
+                if (manager == null || offer == null) {
+                    Toast.makeText(this@CallActivity, R.string.msg_session_lost, Toast.LENGTH_LONG).show()
+                    finish()
+                    return@runOnUiThread
+                }
+                lifecycleScope.launch {
+                    try {
+                        setStatus(R.string.status_connecting)
+                        showProgress(true)
+                        manager.applyAnswer(sdp)
+                        hideSignalingPanels()
+                    } catch (e: Exception) {
+                        fail(e.message ?: "applyAnswer")
+                    }
+                }
+            }
+        }
+
+        override fun onBye() {
+            runOnUiThread {
+                if (!cloudMediaStarted) {
+                    Toast.makeText(this@CallActivity, R.string.msg_cloud_declined, Toast.LENGTH_LONG).show()
+                    finish()
+                } else {
+                    binding.statusText.text = getString(R.string.msg_cloud_peer_left)
+                }
+            }
+        }
+
+        override fun onClosed(reason: String?) {
+            runOnUiThread {
+                // До старта медиа закрытие канала = нет связи (нет смысла ждать).
+                if (!cloudMediaStarted) {
+                    fail(reason ?: getString(R.string.msg_cloud_closed, "ws"))
+                }
+            }
+        }
+    }
+
+    // ------------------------------------------------------------------------
     //  UI: панели
     // ------------------------------------------------------------------------
 
@@ -467,6 +693,8 @@ class CallActivity : AppCompatActivity(), WebRtcListener {
         }
 
         binding.btnHangup.setOnClickListener { endCall() }
+
+        binding.btnCloudRing.setOnClickListener { ringCloudPeer() }
 
         binding.btnFile.setOnClickListener {
             pickFileLauncher.launch("*/*")
@@ -744,8 +972,16 @@ class CallActivity : AppCompatActivity(), WebRtcListener {
     /** Завершение звонка пользователем: освобождаем ресурсы и закрываем экран. */
     private fun endCall() {
         RoomHistory.setActiveRoom(this, null)
+        closeCloudChannel()
         WebRtcController.reset()
         finish()
+    }
+
+    /** Закрываем WebSocket-канал дозвона (если был). */
+    private fun closeCloudChannel() {
+        if (cloudMediaStarted) cloudWs?.sendBye()
+        cloudWs?.close()
+        cloudWs = null
     }
 
     /** Неустранимая ошибка: показать сообщение и закрыть экран. */
@@ -757,6 +993,7 @@ class CallActivity : AppCompatActivity(), WebRtcListener {
             getString(R.string.msg_failed, reason),
             Toast.LENGTH_LONG
         ).show()
+        closeCloudChannel()
         WebRtcController.reset()
         finish()
     }
@@ -887,6 +1124,8 @@ class CallActivity : AppCompatActivity(), WebRtcListener {
     private fun maybeAutoApplyAnswerFromClipboard() {
         // Имеет смысл только для инициатора, ожидающего ответ.
         if (WebRtcController.localOfferSdp == null || WebRtcController.manager == null) return
+        // В Cloud-режиме ответ приходит по WebSocket, буфер не трогаем.
+        if (cloudWs != null) return
         val text = (getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager)
             ?.primaryClip?.getItemAt(0)?.text?.toString() ?: return
         if (text == lastAppliedClipboard) return
@@ -901,6 +1140,8 @@ class CallActivity : AppCompatActivity(), WebRtcListener {
         super.onDestroy()
         // Снимаем удержание процесса.
         CallService.stop(this)
+        // Закрываем канал дозвона.
+        closeCloudChannel()
         // Отвязываем рендереры от менеджера.
         WebRtcController.manager?.detachRenderers()
         runCatching {

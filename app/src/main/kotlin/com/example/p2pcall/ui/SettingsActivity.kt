@@ -29,6 +29,7 @@ class SettingsActivity : AppCompatActivity() {
         binding.turnPassInput.setText(prefs.getString("turn_pass", ""))
         binding.firebaseUrlInput.setText(prefs.getString("firebase_url", ""))
         binding.roomCodeInput.setText(prefs.getString("room_code", ""))
+        binding.cloudUrlInput.setText(prefs.getString(AppConfig.CLOUD_URL_KEY, ""))
         binding.videoEconomySwitch.isChecked = prefs.getBoolean("video_economy", false)
 
         binding.btnSave.setOnClickListener {
@@ -39,6 +40,7 @@ class SettingsActivity : AppCompatActivity() {
                 .putString("turn_pass", binding.turnPassInput.text.toString().trim())
                 .putString("firebase_url", binding.firebaseUrlInput.text.toString().trim())
                 .putString("room_code", binding.roomCodeInput.text.toString().trim())
+                .putString(AppConfig.CLOUD_URL_KEY, binding.cloudUrlInput.text.toString().trim())
                 .putBoolean("video_economy", binding.videoEconomySwitch.isChecked)
                 .apply()
             Toast.makeText(this, R.string.settings_saved, Toast.LENGTH_SHORT).show()

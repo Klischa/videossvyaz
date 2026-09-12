@@ -27,5 +27,8 @@ enum class CallMode {
     APPLY_ANSWER,
 
     /** Звонок через «комнату» на сигнальном сервере: роль (offerer/answerer) определяется автоматически. */
-    ROOM
+    ROOM,
+
+    /** Дозвон через Cloudflare Worker (WebSocket): первый в комнате — caller, второй — callee. */
+    CLOUD
 }

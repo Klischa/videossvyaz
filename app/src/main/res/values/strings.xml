@@ -86,6 +86,25 @@
     <string name="settings_video_economy">Экономия трафика</string>
     <string name="settings_video_economy_hint">Видео для плохого интернета: ниже разрешение/FPS/битрейт — картинка устойчивее при потере пакетов (включите при нестабильной связи).</string>
 
+    <!-- Дозвон через Cloudflare Worker -->
+    <string name="btn_cloud_call">Позвонить (Cloudflare)</string>
+    <string name="btn_cloud_ring">Позвонить</string>
+    <string name="settings_cloud_hint">Дозвон напрямую через Cloudflare Worker (без Telegram и сервера): укажите адрес воркера + общий код комнаты на обоих телефонах.</string>
+    <string name="settings_cloud_url">Cloudflare Worker (https://…workers.dev)</string>
+    <string name="msg_cloud_not_configured">Сначала укажите Cloudflare Worker и код комнаты в Настройках</string>
+    <string name="msg_cloud_declined">Звонок отклонён</string>
+    <string name="msg_cloud_closed">Канал закрыт: %1$s</string>
+    <string name="msg_cloud_peer_left">Собеседник отключился</string>
+    <string name="cloud_incoming_title">Входящий звонок</string>
+    <string name="cloud_incoming_msg">Звонок от %1$s</string>
+    <string name="cloud_accept">Ответить</string>
+    <string name="cloud_decline">Отклонить</string>
+    <string name="status_cloud_connecting">Подключение к серверу…</string>
+    <string name="status_cloud_wait_peer">Ожидание собеседника…</string>
+    <string name="status_cloud_peer_ready">Собеседник на связи — нажмите «Позвонить»</string>
+    <string name="status_cloud_ringing">Звоним…</string>
+    <string name="status_cloud_wait_call">Ожидание звонка…</string>
+
     <!-- Сообщения -->
     <string name="msg_copied">Ссылка скопирована в буфер обмена</string>
     <string name="msg_invalid_link">Неверная или повреждённая ссылка</string>

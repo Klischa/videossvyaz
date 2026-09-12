@@ -14,6 +14,14 @@ object AppConfig {
     /** Имя файла SharedPreferences для настроек (TURN и т.п.). */
     const val PREFS = "p2pcall_prefs"
 
+    /** Ключ настройки: адрес Cloudflare Worker для дозвона (без "/ws"). */
+    const val CLOUD_URL_KEY = "cloudflare_url"
+
+    /** Возвращает сохранённый адрес Cloudflare Worker (уже без хвоста "/ws"). */
+    fun cloudUrl(context: Context): String =
+        (context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getString(CLOUD_URL_KEY, "") ?: "").trim().trimEnd('/')
+
     /** Базовый URL, из которого формируются ссылки-приглашения. */
     const val BASE_URL = "https://yourdomain.com/call"
 

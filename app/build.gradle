@@ -21,8 +21,8 @@ android {
         applicationId "com.example.p2pcall"
         minSdk 24
         targetSdk 34
-        versionCode 24
-        versionName "3.3"
+        versionCode 25
+        versionName "3.4"
     }
 
     signingConfigs {
@@ -106,4 +106,7 @@ dependencies {
 
     // QR-коды: генерация (BarcodeEncoder) и сканирование (IntentIntegrator).
     implementation 'com.journeyapps:zxing-android-embedded:4.3.0'
+
+    // WebSocket-клиент для дозвона через Cloudflare Worker (WsSignaling).
+    implementation 'com.squareup.okhttp3:okhttp:4.12.0'
 }

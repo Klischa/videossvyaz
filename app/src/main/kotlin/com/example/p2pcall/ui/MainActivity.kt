@@ -64,6 +64,9 @@ class MainActivity : AppCompatActivity() {
         binding.btnRoomCall.setOnClickListener {
             startActivity(CallActivity.intent(this, CallMode.ROOM, sdp = null))
         }
+        binding.btnCloudCall.setOnClickListener {
+            startActivity(CallActivity.intent(this, CallMode.CLOUD, sdp = null))
+        }
         binding.btnSettings.setOnClickListener {
             startActivity(Intent(this, SettingsActivity::class.java))
         }
