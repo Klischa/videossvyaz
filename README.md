@@ -210,3 +210,20 @@ PeerConnection.IceServer.builder("turn:turn.example.com:3478")
 - Шифрование SDP не применяется (как и требовалось в задании). При желании
   можно добавить симметричное шифрование по паролю в `SdpCodec`.
 - STUN-only; TURN подключается вручную (см. настройку).
+
+---
+
+## Дополнительно: 3D-модель Spitfire (папка `3d/`)
+
+В репозитории есть отдельный, не связанный с Android-приложением артефакт —
+**процедурная 3D-модель Supermarine Spitfire Mk I** (RAF, камуфляж «A»).
+Она целиком генерируется кодом на Python (только stdlib), без Blender/CAD:
+
+```bash
+cd 3d/spitfire
+python3 serve.py                    # интерактивный просмотр: http://localhost:8000
+python3 tools/generate_spitfire.py  # пересобрать models/spitfire.obj|.glb|.stl
+python3 tools/make_renders.py       # превью-картинки в renders/
+```
+
+Подробности — в [`3d/spitfire/README.md`](3d/spitfire/README.md).
